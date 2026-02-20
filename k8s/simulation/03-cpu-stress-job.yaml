@@ -1,0 +1,110 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SCENARIO 3: CPU Stress via Kubernetes Job
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# WHAT THIS DEMONSTRATES
+# ──────────────────────
+# When you click "CPU Stress (60s)", the backend creates this exact Job via:
+#
+#   batchV1Api.createNamespacedJob('kubelab', <job manifest>)
+#
+# A Job is a Kubernetes workload type that runs to completion — unlike a
+# Deployment which keeps pods running forever. It's the right primitive for
+# one-shot tasks: stress tests, database migrations, batch processing.
+#
+# WHAT THE STRESS PROCESS ACTUALLY DOES
+# ──────────────────────────────────────
+# stress --cpu 2 --timeout 60s
+#
+# This spawns 2 worker threads, each running an infinite tight loop:
+#   while(1) { sqrt(rand()); }
+#
+# That's 2 threads consuming 100% of 2 CPU cores — on a Linux system with
+# no limits, it would max out 2 cores. With Kubernetes limits (600m = 0.6 cores),
+# the kernel throttles the container via CFS (Completely Fair Scheduler).
+# The stress process still runs, but the kernel pauses it frequently.
+#
+# WHAT YOU'LL SEE
+# ───────────────
+# A new pod appears:
+#   kubectl get pods -n kubelab
+#   cpu-stress-<timestamp>-xxxxx   1/1   Running   0   5s
+#
+# CPU spike on the scheduled node (updates every ~15s):
+#   watch kubectl top nodes
+#   NAME               CPU(cores)   CPU%   MEMORY(bytes)
+#   kubelab-worker-2   420m         42%    ← spike on the node it landed on
+#
+# After 60 seconds, pod enters Completed state:
+#   cpu-stress-<timestamp>-xxxxx   0/1   Completed   0   65s
+#
+# Job is auto-deleted 120s after completion (ttlSecondsAfterFinished).
+#
+# RESOURCE LIMITS: WHY THEY MATTER HERE
+# ──────────────────────────────────────
+# Without limits, the stress pod could consume all CPU on the node and starve
+# other pods (the "noisy neighbor" problem). Limits prevent this.
+#
+#   requests: cpu: 200m  → Scheduler guarantees 200m is available on the node
+#   limits:   cpu: 600m  → Kernel caps the container at 600m via throttling
+#
+# Run this manually to see the same effect:
+#   kubectl apply -f 03-cpu-stress-job.yaml
+#   watch kubectl top nodes
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cpu-stress-manual
+  namespace: kubelab
+  labels:
+    kubelab-simulation: cpu-stress
+  annotations:
+    kubelab/scenario: "cpu-stress"
+    kubelab/trigger: "POST /api/simulate/cpu-stress"
+    kubelab/purpose: "Demonstrates CPU resource limits and kernel throttling"
+spec:
+  # Auto-delete the Job (and its pod) 2 minutes after it finishes.
+  # Without this, completed Jobs accumulate and clutter the cluster.
+  ttlSecondsAfterFinished: 120
+
+  # Don't retry on failure — stress exits cleanly after --timeout
+  backoffLimit: 0
+
+  template:
+    metadata:
+      labels:
+        kubelab-simulation: cpu-stress
+    spec:
+      # Jobs don't restart — they run once and exit.
+      # Never, OnFailure, or Always — for Jobs, Never or OnFailure only.
+      restartPolicy: Never
+
+      containers:
+        - name: stress
+          # Minimal Alpine-based stress tool (~5MB image)
+          image: polinux/stress:latest
+
+          command: ["stress"]
+          args:
+            - "--cpu"
+            - "2"           # Spawn 2 CPU-intensive worker threads
+            - "--timeout"
+            - "60s"         # Run for 60 seconds then exit cleanly
+            - "--verbose"   # Print progress so logs are visible
+
+          resources:
+            requests:
+              cpu: "200m"     # Scheduler needs this much free on a node to place the pod
+              memory: "64Mi"
+            limits:
+              cpu: "600m"     # Kernel caps at 600m — stress will be throttled, not OOMKilled
+              memory: "128Mi"
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false   # stress binary needs to fork workers
+            capabilities:
+              drop: ["ALL"]
+

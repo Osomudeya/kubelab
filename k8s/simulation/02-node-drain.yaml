@@ -1,0 +1,97 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SCENARIO 2: Node Drain & Pod Disruption Budget
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# WHAT THIS DEMONSTRATES
+# ──────────────────────
+# When you click "Drain Worker Node", the backend does two things:
+#
+#   1. coreV1Api.patchNode(nodeName, { spec: { unschedulable: true } })
+#      → Cordons the node: no new pods are scheduled here
+#
+#   2. k8sApi.deleteNamespacedPod(pod.name, pod.namespace)  ← for each pod
+#      → Evicts pods (DaemonSet pods are skipped)
+#
+# Evicted pods are rescheduled by the scheduler onto the remaining nodes.
+# The node stays in SchedulingDisabled state until you uncordon it.
+#
+# WHY NODES GET DRAINED IN PRODUCTION
+# ────────────────────────────────────
+# - Kernel security patch (node must reboot)
+# - Hardware replacement
+# - Cloud provider maintenance window
+# - Cluster upgrade (one node at a time)
+# - Decommissioning a node
+#
+# The pattern is always: drain → do work → uncordon (or replace the node).
+#
+# WHAT YOU'LL SEE
+# ───────────────
+# kubectl get nodes
+#   kubelab-worker-1   Ready,SchedulingDisabled   ← cordoned
+#   kubelab-worker-2   Ready                      ← normal
+#
+# kubectl get pods -n kubelab -o wide
+#   All pods that were on worker-1 now show worker-2 or microk8s-vm as NODE
+#
+# Watch pods migrate:
+#   kubectl get pods -n kubelab -o wide -w
+#
+# WHAT DAEMONSETS DO DURING A DRAIN
+# ──────────────────────────────────
+# DaemonSet pods (like node-exporter, calico) are NOT evicted.
+# They must run on every node — including cordoned ones.
+# The drain logic skips them intentionally.
+#   kubectl get pods -n kubelab -o wide | grep node-exporter
+#   → Still shows on the drained node
+#
+# TO RESTORE: Uncordon
+# ─────────────────────
+# Click "Uncordon <node>" in the UI, or:
+#   kubectl uncordon kubelab-worker-1
+#
+# WHAT A PODDISRUPTIONBUDGET ADDS
+# ────────────────────────────────
+# A PDB tells Kubernetes the minimum number of pods that must stay available
+# during voluntary disruptions (like a drain). Without a PDB, all pods on the
+# node can be evicted simultaneously — causing a brief outage even with 2 replicas.
+#
+# Apply this alongside the lab to see PDB enforcement:
+#   kubectl apply -f 02-node-drain.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: kubelab
+  annotations:
+    kubelab/scenario: "node-drain"
+    kubelab/trigger: "POST /api/simulate/drain-node"
+    kubelab/purpose: |
+      Guarantees at least 1 backend pod is always available during a node drain.
+      Without this, a drain could evict both pods simultaneously (brief outage).
+      With this, Kubernetes waits for a new pod to start before evicting the next.
+spec:
+  # minAvailable: 1 means Kubernetes will refuse to evict a pod if doing so
+  # would bring the running count below 1.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
+
+---
+# Reference: what a cordoned node looks like
+#
+# kubectl get nodes output after drain:
+#
+#   NAME               STATUS                     ROLES
+#   kubelab-worker-1   Ready,SchedulingDisabled   <none>
+#
+# kubectl describe node kubelab-worker-1 | grep -A2 "Unschedulable"
+#   Unschedulable: true
+#
+# The node is still READY (kubelet is running, node is healthy).
+# SchedulingDisabled only means the scheduler won't place NEW pods here.
+# Existing pods are fine until explicitly evicted.
+

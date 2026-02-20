@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SCENARIO 1: Pod Self-Healing
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# WHAT THIS DEMONSTRATES
+# ──────────────────────
+# When you click "Kill Random Pod" in the UI, the backend calls:
+#
+#   k8sApi.deleteNamespacedPod(podName, 'kubelab')
+#
+# That's it. One API call. The rest is Kubernetes.
+#
+# WHY KUBERNETES RECREATES THE POD
+# ─────────────────────────────────
+# A Deployment doesn't manage pods directly. It manages a ReplicaSet, which
+# watches for a mismatch between desired (spec.replicas) and actual pod count.
+#
+# The reconciliation loop runs continuously:
+#
+#   desired: 2  actual: 1  → controller creates a new pod
+#   desired: 2  actual: 2  → controller does nothing
+#
+# This loop is why Kubernetes is called "self-healing". The system's job is
+# to keep actual state matching desired state, always.
+#
+# WHAT YOU'LL SEE
+# ───────────────
+# 1. A pod status changes to Terminating
+# 2. A new pod appears immediately (ContainerCreating)
+# 3. The new pod passes readiness probes and starts receiving traffic
+# 4. Restart count stays at 0 on the new pod (it's a fresh pod, not a restart)
+#
+# Watch it happen:
+#   kubectl get pods -n kubelab -w
+#
+# Check events (the controller's action log):
+#   kubectl get events -n kubelab --sort-by='.lastTimestamp' | tail -10
+#
+# KEY CONCEPT: RESTART COUNT VS NEW POD
+# ──────────────────────────────────────
+# - Restart count increments when the SAME pod's container crashes and is restarted
+#   by the kubelet (e.g. process exits, OOM kill, liveness probe failure)
+# - Kill-pod creates a brand-new pod — so restart count on the replacement is 0
+# - Restart count only increments on the original pod's record before it's gone
+#
+# This YAML is the actual backend Deployment that gets self-healed.
+# It is not applied by this simulation — it already exists.
+# Reference only.
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: kubelab
+  annotations:
+    kubelab/scenario: "pod-self-healing"
+    kubelab/trigger: "POST /api/simulate/kill-pod"
+spec:
+  # Two replicas means one pod can die and traffic continues on the other.
+  # With replicas: 1, a pod kill causes a brief outage. This is why HA matters.
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: backend
+
+  # The Deployment keeps the OLD ReplicaSet around during updates (rolling update).
+  # During a pod kill there's no update — the same ReplicaSet recreates the pod.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1   # At most 1 pod can be missing at any time
+      maxSurge: 1         # At most 1 extra pod can exist during an update
+
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      # The readiness probe is what tells the Service when to send traffic.
+      # A new pod only receives traffic AFTER this probe succeeds.
+      # Without it, traffic would hit a pod that isn't ready yet.
+      containers:
+        - name: backend
+          image: veeno/kubelab-backend:latest
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          # Liveness probe triggers a container RESTART (not pod replacement).
+          # If the process hangs and stops responding, kubelet kills and restarts it.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+

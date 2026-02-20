@@ -1,0 +1,117 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SCENARIO 4: Memory Stress → OOMKill
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# WHAT THIS DEMONSTRATES
+# ──────────────────────
+# When you click "Memory Stress (OOMKill)", the backend creates this Job.
+# The container deliberately tries to allocate MORE memory than its limit allows.
+# The Linux kernel's OOM killer fires and terminates the process.
+# Kubernetes records this as "OOMKilled" — visible in pod status.
+#
+# This is the most common cause of unexpected pod restarts in production:
+# applications with memory leaks grow until the kernel kills them.
+#
+# THE DELIBERATE MISMATCH
+# ────────────────────────
+# stress --vm-bytes 400M   ← tries to allocate 400MB
+# limits.memory: 200Mi    ← kernel enforces a 200MB ceiling
+#
+# The moment the process crosses 200MB, the Linux OOM killer sends SIGKILL
+# (signal 9, not graceful). Exit code: 137 (128 + 9).
+#
+# WHAT YOU'LL SEE
+# ───────────────
+# Pod appears, then quickly enters OOMKilled:
+#   kubectl get pods -n kubelab -w
+#   mem-stress-xxxxx   0/1   OOMKilled   0     3s
+#   mem-stress-xxxxx   0/1   OOMKilled   1     8s   ← restarted, killed again
+#   mem-stress-xxxxx   0/1   OOMKilled   2     15s  ← backoffLimit hit → job fails
+#
+# The "smoking gun" — this is exactly what you'd see in production:
+#   kubectl describe pod -n kubelab -l kubelab-simulation=memory-stress
+#
+#   Containers:
+#     stress:
+#       State:        Waiting
+#         Reason:     CrashLoopBackOff
+#       Last State:   Terminated
+#         Reason:     OOMKilled        ← this is what you're looking for
+#         Exit Code:  137
+#
+# WHY backoffLimit: 2 (not 0)
+# ────────────────────────────
+# backoffLimit: 0 would make the job fail immediately on first OOMKill.
+# backoffLimit: 2 allows 3 total attempts, so you can watch the OOMKill cycle:
+# restart → OOMKill → restart → OOMKill → restart → OOMKill → Job Failed.
+# This mimics what a real CrashLoopBackOff looks like in production.
+#
+# PRODUCTION LESSON
+# ─────────────────
+# High restart counts + OOMKilled in `kubectl describe` = memory leak or
+# undersized memory limit. The fix is either:
+#   a) Raise the limit (if the app genuinely needs more memory)
+#   b) Fix the memory leak in the application
+#
+# Monitor this with:
+#   kubectl top pods -n kubelab
+#   # Look for pods consuming close to their limit
+#
+# Run manually:
+#   kubectl apply -f 04-memory-oom-job.yaml
+#   kubectl get pods -n kubelab -w
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: memory-stress-manual
+  namespace: kubelab
+  labels:
+    kubelab-simulation: memory-stress
+  annotations:
+    kubelab/scenario: "memory-stress"
+    kubelab/trigger: "POST /api/simulate/memory-stress"
+    kubelab/purpose: "Demonstrates OOMKill — intentional limit < allocation"
+spec:
+  ttlSecondsAfterFinished: 180
+
+  # Allow 2 retries so the OOMKill cycle is visible (3 total attempts)
+  backoffLimit: 2
+
+  template:
+    metadata:
+      labels:
+        kubelab-simulation: memory-stress
+    spec:
+      # OnFailure: kubelet restarts the container in-place when it exits non-zero.
+      # This is what creates the visible OOMKill → restart cycle.
+      restartPolicy: OnFailure
+
+      containers:
+        - name: stress
+          image: polinux/stress:latest
+
+          command: ["stress"]
+          args:
+            - "--vm"
+            - "1"           # Spawn 1 memory worker thread
+            - "--vm-bytes"
+            - "400M"        # Try to allocate 400MB (will be killed at 200MB)
+            - "--timeout"
+            - "30s"
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "200Mi"   # ← 200MB limit vs 400MB allocation = guaranteed OOMKill
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: false
+            capabilities:
+              drop: ["ALL"]
+

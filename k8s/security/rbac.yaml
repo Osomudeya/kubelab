@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubelab-backend-sa
+  namespace: kubelab
+  labels:
+    app: backend
+
+---
+# Namespace-scoped role: pods, jobs, statefulsets within kubelab
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubelab-backend-role
+  namespace: kubelab
+rules:
+  # Read and delete pods (kill-pod, drain-node)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  # Read events (live events feed in the UI)
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list"]
+  # Create and delete Jobs (cpu-stress, memory-stress)
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "create", "delete"]
+  # Patch StatefulSets (db-failure, restore-db)
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubelab-backend-rolebinding
+  namespace: kubelab
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubelab-backend-role
+subjects:
+  - kind: ServiceAccount
+    name: kubelab-backend-sa
+    namespace: kubelab
+
+---
+# Cluster-scoped role: nodes are cluster-wide resources, so a ClusterRole is required
+# This allows the backend to read, cordon, and uncordon nodes (drain-node, uncordon-node)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubelab-node-role
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubelab-node-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubelab-node-role
+subjects:
+  - kind: ServiceAccount
+    name: kubelab-backend-sa
+    namespace: kubelab

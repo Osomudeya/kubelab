@@ -1,0 +1,107 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SCENARIO 5: Database Failure via StatefulSet Scale-to-Zero
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# WHAT THIS DEMONSTRATES
+# ──────────────────────
+# When you click "Simulate DB Failure", the backend runs:
+#
+#   appsV1Api.patchNamespacedStatefulSet('postgres', 'kubelab', { spec: { replicas: 0 } })
+#
+# And to restore:
+#
+#   appsV1Api.patchNamespacedStatefulSet('postgres', 'kubelab', { spec: { replicas: 1 } })
+#
+# This is a real, immediate change to the cluster — not a network rule or
+# firewall change. The Postgres pod genuinely terminates.
+#
+# WHY A STATEFULSET INSTEAD OF A DEPLOYMENT?
+# ────────────────────────────────────────────
+# StatefulSets give each pod a stable, predictable identity:
+#   - Pod name:  postgres-0  (always, not random like backend-abc123)
+#   - DNS name:  postgres-0.postgres.kubelab.svc.cluster.local
+#   - Volume:    Always mounts the SAME PersistentVolumeClaim (postgres-data-postgres-0)
+#
+# A Deployment would lose data on pod deletion because a new pod gets a new
+# (empty) PVC. StatefulSets preserve the PVC across restarts and scale events.
+#
+# WHAT HAPPENS TO THE DATA (PVC)
+# ────────────────────────────────
+# Scaling to 0 does NOT delete the PersistentVolumeClaim.
+# The data is safe on the underlying storage.
+#
+#   kubectl get pvc -n kubelab
+#   NAME                       STATUS   VOLUME     CAPACITY
+#   postgres-data-postgres-0   Bound    pvc-xxx    10Gi     ← still there at replicas=0
+#
+# When you scale back to 1, postgres-0 is recreated and immediately reattaches
+# to the SAME volume — no data loss, no re-initialization.
+#
+# WHAT YOU'LL SEE DURING FAILURE
+# ──────────────────────────────
+# Pod terminates:
+#   kubectl get pods -n kubelab -w
+#   postgres-0   1/1   Running     → Terminating → <gone>
+#
+# StatefulSet shows 0/0:
+#   kubectl get statefulset -n kubelab
+#   NAME       READY   AGE
+#   postgres   0/0     2h
+#
+# Service has no endpoints (connection refused):
+#   kubectl get endpoints -n kubelab postgres
+#   NAME       ENDPOINTS   AGE
+#   postgres   <none>      2h
+#
+# WHAT YOU'LL SEE DURING RESTORE
+# ───────────────────────────────
+#   kubectl get pods -n kubelab -w
+#   postgres-0   0/1   Pending → ContainerCreating → Running (0/1) → Running (1/1)
+#
+# The (1/1) means readiness probe passed — Postgres is accepting connections.
+#
+# PRODUCTION LESSON
+# ─────────────────
+# Scale-to-zero is a real maintenance technique:
+#   - Stop writes before a database migration
+#   - Pause a StatefulSet while restoring from backup
+#   - Emergency stop of a runaway database process
+#
+# Applications must handle database unavailability with retry logic and
+# connection pool settings. An app that opens one connection at startup and
+# never retries will stay broken even after the database comes back.
+#
+# Do not apply this file directly — the UI simulation controls this.
+# Reference only. The kubectl equivalents are below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# kubectl equivalent of "Simulate DB Failure":
+#   kubectl scale statefulset postgres -n kubelab --replicas=0
+#
+# kubectl equivalent of "Restore Database":
+#   kubectl scale statefulset postgres -n kubelab --replicas=1
+#
+# Or using patch (what the backend does internally):
+#   kubectl patch statefulset postgres -n kubelab \
+#     --type=merge \
+#     -p '{"spec":{"replicas":0}}'
+#
+# Verify the PVC survives the scale-to-zero:
+#   kubectl get pvc -n kubelab
+#
+# Watch the endpoint come back after restore:
+#   kubectl get endpoints postgres -n kubelab -w
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# The actual StatefulSet definition lives in k8s/base/postgres.yaml.
+# Key fields that make it a StatefulSet (not a Deployment):
+#
+#   kind: StatefulSet          ← stable pod identities
+#   spec.serviceName: postgres ← headless service for DNS
+#   volumeClaimTemplates:      ← each pod gets its own PVC (named <claim>-<pod>)
+#
+# The headless Service (clusterIP: None) means DNS resolves to the pod IP
+# directly — not load-balanced through kube-proxy. This lets clients connect
+# to postgres-0 specifically, which matters for stateful databases.
+# ─────────────────────────────────────────────────────────────────────────────
+

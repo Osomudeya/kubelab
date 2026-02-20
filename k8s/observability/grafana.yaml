@@ -1,0 +1,271 @@
+# Secret defined in k8s/secrets.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: kubelab
+  labels:
+    app: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: "15s"
+---
+# Tells Grafana to load dashboards from /var/lib/grafana/dashboards automatically.
+# No manual import needed — the dashboard appears on first login.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: kubelab
+  labels:
+    app: grafana
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: kubelab
+        type: file
+        disableDeletion: true
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+# KubeLab Cluster Health dashboard — auto-loaded by the provider above.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-cluster-health
+  namespace: kubelab
+  labels:
+    app: grafana
+data:
+  cluster-health.json: |
+    {
+      "title": "KubeLab - Cluster Health Dashboard",
+      "tags": ["kubelab", "kubernetes", "monitoring"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "refresh": "10s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1, "title": "Nodes Ready", "type": "stat",
+          "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+          "targets": [{"expr": "nodes_ready", "refId": "A"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "red"}, {"value": 1, "color": "green"}]}, "unit": "short"}},
+          "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto"}
+        },
+        {
+          "id": 2, "title": "Total Pods", "type": "stat",
+          "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+          "targets": [{"expr": "sum(pods_running)", "refId": "A"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+          "options": {"colorMode": "value", "graphMode": "none"}
+        },
+        {
+          "id": 3, "title": "Pod Restart Count (Last Hour)", "type": "stat",
+          "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+          "targets": [{"expr": "sum(increase(kube_pod_container_status_restarts_total[1h]))", "refId": "A"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]}, "unit": "short"}},
+          "options": {"colorMode": "value", "graphMode": "area"}
+        },
+        {
+          "id": 4, "title": "Node CPU Usage Over Time", "type": "timeseries",
+          "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+          "targets": [{"expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "refId": "A", "legendFormat": "{{instance}}"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 70, "color": "yellow"}, {"value": 90, "color": "red"}]}, "unit": "percent"}},
+          "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}}
+        },
+        {
+          "id": 5, "title": "Node Memory Usage Over Time", "type": "timeseries",
+          "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+          "targets": [{"expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100", "refId": "A", "legendFormat": "{{instance}}"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 70, "color": "yellow"}, {"value": 90, "color": "red"}]}, "unit": "percent"}},
+          "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}}
+        },
+        {
+          "id": 6, "title": "Pod Restart Count Per Pod", "type": "bargauge",
+          "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+          "targets": [{"expr": "increase(kube_pod_container_status_restarts_total[1h])", "refId": "A", "legendFormat": "{{pod}}"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]}, "unit": "short"}},
+          "options": {"displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true}
+        },
+        {
+          "id": 7, "title": "Pods by Status", "type": "piechart",
+          "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+          "targets": [{"expr": "sum by (status) (pods_running)", "refId": "A", "legendFormat": "{{status}}"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}}},
+          "options": {"legend": {"displayMode": "table", "placement": "right"}, "pieType": "pie", "tooltip": {"mode": "single"}}
+        },
+        {
+          "id": 8, "title": "HTTP Request Rate (requests/sec)", "type": "timeseries",
+          "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+          "targets": [
+            {"expr": "sum(rate(http_requests_total[5m]))", "refId": "A", "legendFormat": "Total Requests/sec"},
+            {"expr": "sum(rate(http_requests_total{status_code=~\"2..\"}[5m]))", "refId": "B", "legendFormat": "2xx Success"},
+            {"expr": "sum(rate(http_requests_total{status_code=~\"[45]..\"}[5m]))", "refId": "C", "legendFormat": "4xx/5xx Errors"}
+          ],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}, "unit": "reqps"}},
+          "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}}
+        },
+        {
+          "id": 9, "title": "Simulation Events (Last Hour)", "type": "stat",
+          "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+          "targets": [{"expr": "sum(increase(simulation_events_total[1h]))", "refId": "A"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "orange"}]}, "unit": "short"}},
+          "options": {"colorMode": "value", "graphMode": "area"}
+        },
+        {
+          "id": 10, "title": "Simulation Events by Type", "type": "bargauge",
+          "gridPos": {"x": 0, "y": 28, "w": 24, "h": 8},
+          "targets": [{"expr": "sum by (type) (increase(simulation_events_total[1h]))", "refId": "A", "legendFormat": "{{type}}"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+          "options": {"displayMode": "gradient", "orientation": "horizontal"}
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage
+  namespace: kubelab
+  labels:
+    app: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: kubelab
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.2.2
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: admin-password
+            - name: GF_SERVER_ROOT_URL
+              value: /
+            - name: GF_INSTALL_PLUGINS
+              value: ""
+            - name: GF_PATHS_DATA
+              value: /var/lib/grafana
+            - name: GF_PATHS_LOGS
+              value: /var/log/grafana
+            - name: GF_PATHS_PLUGINS
+              value: /var/lib/grafana/plugins
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/grafana
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboard-cluster-health
+              mountPath: /var/lib/grafana/dashboards
+          resources:
+            limits:
+              cpu: 300m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # Grafana needs write access
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: grafana-storage
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboard-cluster-health
+          configMap:
+            name: grafana-dashboard-cluster-health
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: kubelab
+  labels:
+    app: grafana
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30300
+      name: http
+  selector:
+    app: grafana
+
