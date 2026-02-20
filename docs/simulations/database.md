@@ -62,5 +62,5 @@ kubectl scale statefulset postgres --replicas=1 -n staging
 
 Data persists. Never do this to production.
 
-**Next**: [CPU Stress →](cpu-stress.md)
+**Back**: [OOMKill ←](oomkill.md) · **Next**: [CPU Stress →](cpu-stress.md)
 

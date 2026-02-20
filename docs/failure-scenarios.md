@@ -21,7 +21,7 @@ kubectl get events -n kubelab --sort-by=.lastTimestamp | tail -8
 
 **Insight**: The Service routed traffic to the surviving replica the entire time. Rising RESTARTS in production = investigate OOMKills or crashes, not the replacement itself.
 
-**Next**: [Drain Node →](#2-drain-worker-node)
+**Back**: [README →](../README.md) · **Next**: [Drain Node →](#2-drain-worker-node)
 
 ---
 
@@ -45,7 +45,7 @@ kubectl get pods -n kubelab -o wide | grep backend
 # If both show the same NODE, you have an HA gap
 ```
 
-**Next**: [OOMKill →](#3-memory-stress-oomkill)
+**Back**: [Kill Pod ←](#1-kill-random-pod) · **Next**: [OOMKill →](#3-memory-stress-oomkill)
 
 ---
 
@@ -75,7 +75,7 @@ Exit 137 = 128 + 9 (SIGKILL). The Linux kernel sent it — not Kubernetes. Kuber
 
 **Insight**: The other backend replica served traffic the entire time. Slow memory leak pattern: pod runs for 8 hours → OOMKill → restart → repeat. Alert on `kube_pod_container_status_restarts_total > 3` per hour.
 
-**Next**: [DB Failure →](#4-database-failure)
+**Back**: [Drain Node ←](#2-drain-worker-node) · **Next**: [DB Failure →](#4-database-failure)
 
 ---
 
@@ -99,7 +99,7 @@ After restoring: same pod name (`postgres-0`), same PVC reattaches, zero data lo
 
 **Insight**: StatefulSets guarantee `postgres-0` always gets PVC `postgres-data-postgres-0`. If the backend doesn't retry database connections, it stays broken until you restart backend pods even after Postgres recovers.
 
-**Next**: [CPU Stress →](#5-cpu-stress)
+**Back**: [OOMKill ←](#3-memory-stress-oomkill) · **Next**: [CPU Stress →](#5-cpu-stress)
 
 ---
 
@@ -119,7 +119,7 @@ rate(container_cpu_cfs_throttled_seconds_total{namespace="kubelab"}[5m])
 
 High latency + normal-looking CPU metrics + no restarts = CPU limits set too low.
 
----
+**Back**: [DB Failure ←](#4-database-failure) · **Next**: [Cascading Failure →](#6-cascading-pod-failure)
 
 ---
 
@@ -139,7 +139,7 @@ kubectl get events -n kubelab --sort-by=.lastTimestamp | tail -10
 
 **Insight**: `replicas: 2` protects against one pod dying. It doesn't protect against both dying simultaneously (bad deployment rollout, node running both replicas fails). Fix: pod anti-affinity + PodDisruptionBudget with `minAvailable: 1`.
 
-**Next**: [Readiness Probe →](#7-readiness-probe-failure)
+**Back**: [CPU Stress ←](#5-cpu-stress) · **Next**: [Readiness Probe →](#7-readiness-probe-failure)
 
 ---
 
@@ -164,6 +164,8 @@ kubectl describe pod -n kubelab <failing-pod> | grep -A 5 "Conditions:"
 ```
 
 **Insight**: This is how intentional traffic removal works — blue/green deploys, maintenance windows, graceful drains. It's also how misconfigured readiness probes cause silent partial outages: pod shows `Running`, dashboards look fine, but 50% of traffic is silently failing.
+
+**Back**: [Cascading Failure ←](#6-cascading-pod-failure) · **Next**: [Observability →](observability.md)
 
 ---
 

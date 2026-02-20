@@ -55,5 +55,5 @@ kubectl describe pod -n kubelab <pod-name> | grep -A 5 "Last State:"
 
 Alert on: `rate(kube_pod_container_status_restarts_total[15m]) > 0.1`
 
-**Next**: [Drain Node →](node-drain.md)
+**Back**: [All Scenarios ←](../failure-scenarios.md) · **Next**: [Drain Node →](node-drain.md)
 

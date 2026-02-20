@@ -80,13 +80,14 @@ The manifests already reference `veeno/kubelab-backend` and `veeno/kubelab-front
 ./scripts/update-manifests.sh <your-dockerhub-username>
 ```
 
-### 6. Create secrets
+### 6. Secrets
 
-```bash
-cp k8s/secrets.yaml.example k8s/secrets.yaml
-# Edit k8s/secrets.yaml — replace placeholder values with base64-encoded passwords:
-echo -n "yourpassword" | base64
-```
+`k8s/secrets.yaml` is already in the repo with working development credentials — no action needed. `deploy-all.sh` applies it automatically.
+
+- **Postgres**: `kubelab-secure-password-123`
+- **Grafana**: `admin` / `kubelab-grafana-2026`
+
+> To use your own passwords: `echo -n "yourpassword" | base64` then edit `k8s/secrets.yaml`. It's gitignored — safe to edit locally.
 
 ### 7. Deploy everything
 
