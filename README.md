@@ -4,7 +4,7 @@ Break Kubernetes on purpose. Watch it self-heal.
 
 ## Quick Start
 
-**~30 minutes. Needs 3 VMs (Multipass works). For a 5-min UI preview with mock data: [Docker Compose path](setup/SETUP.md).**
+**~30 minutes. Needs 3 VMs.** Full step-by-step: [MicroK8s setup guide](setup/k8s-setup.md) · For a 5-min UI preview with mock data: [Docker Compose](setup/SETUP.md)
 
 **Node 1 (control plane):**
 ```bash
@@ -81,4 +81,4 @@ kubectl auth can-i delete pods --as=system:serviceaccount:kubelab:kubelab-backen
 
 ## Reference
 
-[Architecture](docs/architecture.md) · [All Scenarios](docs/failure-scenarios.md) · [Interview Prep](docs/interview-prep.md) · [Full Setup](setup/SETUP.md)
+[Architecture](docs/architecture.md) · [All Scenarios](docs/failure-scenarios.md) · [Interview Prep](docs/interview-prep.md) · [Setup Guide](setup/SETUP.md) · [MicroK8s / 3-Node Setup](setup/k8s-setup.md)
