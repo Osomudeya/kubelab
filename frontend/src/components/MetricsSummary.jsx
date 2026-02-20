@@ -48,7 +48,7 @@ const MetricsSummary = ({ isLoading }) => {
             >
               Open Grafana <ExternalLink className="w-3.5 h-3.5" />
             </a>
-            <span className="text-xs text-gray-400">Default login: admin / admin</span>
+            <span className="text-xs text-gray-400">Login: admin / kubelab-grafana-2026</span>
           </div>
           <p className="text-xs text-gray-400 mt-2 flex items-start gap-1">
             <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-400" />

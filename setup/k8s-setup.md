@@ -13,7 +13,7 @@ This guide walks you through creating a real 3-node Kubernetes cluster using Mul
 
 - macOS with [Multipass](https://multipass.run) installed (`brew install --cask multipass`)
 - `kubectl` installed (`brew install kubectl`)
-- Docker Hub account (to pull the KubeLab images)
+- Docker (for building custom images — skip if using the prebuilt `veeno/kubelab-*` images, which are public and don't require a Docker Hub account)
 - ~8GB of free RAM and ~60GB of free disk on your Mac
 
 ---
@@ -372,7 +372,7 @@ kubectl logs -n kubelab -l app.kubernetes.io/name=kube-state-metrics
 ```
 
 - `i/o timeout` to the API server → NetworkPolicy was blocking egress. Fixed by adding `allow-kube-state-metrics-egress` policy in `network-policies.yaml`.
-- `seccomp` errors → Removed `seccompProfile` from the pod spec (MicroK8s nodes may not support it).
+- `seccomp` errors → The backend manifest uses `seccompProfile: RuntimeDefault`. MicroK8s 1.28 on Ubuntu 22.04 supports this. If you see seccomp-related errors on older kernels, edit `k8s/base/backend.yaml` and remove the `seccompProfile` block from the pod-level `securityContext`.
 
 ### Backend can't reach the Kubernetes API
 

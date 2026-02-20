@@ -38,3 +38,7 @@ k8s/secrets.yaml
 
 # Docker
 .dockerignore.bak
+
+# Internal tooling — not relevant to repo readers
+.codacy/
+.cursor/

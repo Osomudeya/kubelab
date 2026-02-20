@@ -26,7 +26,7 @@ export const useClusterStatus = () => {
       if (dataChanged) {
         pollIntervalRef.current = 2000; // Poll every 2s when data changes
       } else {
-        pollIntervalRef.current = Math.min(pollIntervalRef.current + 1000, 10000); // Gradually increase to max 10s
+        pollIntervalRef.current = Math.min(pollIntervalRef.current + 1000, 5000); // Gradually increase to max 5s
       }
       
       lastDataRef.current = data;

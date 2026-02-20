@@ -170,6 +170,7 @@ function App() {
           onActivity={logActivity}
           onSimStart={(simId) => { setActiveSim(simId); setLastCompletedSim(null); }}
           onSimComplete={(simId) => { setActiveSim(null); setLastCompletedSim(simId); }}
+          mockMode={mockMode}
         />
 
         {/* ── Flashcard: auto-appears on sim start, transitions to "what happened" after ── */}
@@ -202,7 +203,9 @@ function App() {
       <footer className="mt-8 border-t border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <p className="text-center text-xs text-gray-400">
-            KubeLab — every action calls the real Kubernetes API
+            {mockMode
+              ? 'KubeLab — mock mode active. Connect to a real cluster for live simulations.'
+              : 'KubeLab — every action calls the real Kubernetes API'}
           </p>
         </div>
       </footer>

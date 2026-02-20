@@ -111,6 +111,44 @@ const CONTENT = {
     learned: 'Scaling to 0 deleted the pod but preserved the PersistentVolumeClaim. Postgres did a clean checkpoint before shutdown (you\'ll see "database system was shut down" in the logs on restore). The StatefulSet guarantees postgres-0 gets the same PVC on restart.',
     production: 'Apps without connection retry logic return 500s immediately and stay broken even after Postgres restores. Connection pools that don\'t validate on acquire are the worst offenders — they hold a dead connection forever.',
   },
+
+  'kill-all-pods': {
+    title: 'Cascading Pod Failure',
+    color: 'border-red-700 bg-red-950/50',
+    headerColor: 'text-red-300',
+    happening: 'ALL backend pods were deleted simultaneously. The Service has zero healthy endpoints right now — requests are failing. Kubernetes is creating replacements.',
+    commands: [
+      {
+        cmd: 'kubectl get pods -n kubelab -w',
+        watch: 'Both backend pods Terminating at the same time. Watch for new pods: Pending → ContainerCreating → Running',
+      },
+      {
+        cmd: 'kubectl get endpoints -n kubelab backend',
+        watch: 'Addresses list is empty during the gap. It refills when new pods pass their readiness probe.',
+      },
+    ],
+    learned: 'With replicas:2 and both pods dead, the Service endpoint list was empty for 5–15 seconds — real downtime. Kubernetes recreated both pods, but traffic was rejected until readiness probes passed. A PodDisruptionBudget (minAvailable: 1) would have prevented this by blocking simultaneous deletion.',
+    production: 'This is what a bad rolling deploy looks like if maxUnavailable is set too high. It also happens when someone runs kubectl delete pods --all without thinking. PodDisruptionBudgets are the safety net — set one for every production Deployment.',
+  },
+
+  'fail-readiness': {
+    title: 'Readiness Probe Failure',
+    color: 'border-purple-500 bg-purple-950/30',
+    headerColor: 'text-purple-400',
+    happening: 'One backend pod is returning 503 from its /ready endpoint. Kubernetes is removing it from the Service endpoints — it will receive zero traffic, but the pod stays Running.',
+    commands: [
+      {
+        cmd: 'kubectl get pods -n kubelab -l app=backend',
+        watch: 'One pod shows READY 0/1. It stays Running. That\'s the difference from a crash.',
+      },
+      {
+        cmd: 'kubectl get endpoints -n kubelab backend',
+        watch: 'Only one IP listed — the healthy replica. The failing pod\'s IP is absent.',
+      },
+    ],
+    learned: 'The pod was alive but not ready. Kubernetes removed it from the Service endpoint list so no new traffic was routed to it. The other replica handled 100% of requests. After 2 minutes the readiness probe recovered automatically and the pod rejoined the endpoint list.',
+    production: 'Liveness probes restart pods. Readiness probes control traffic. A pod stuck in a degraded state (slow DB, full queue, warming cache) should fail readiness — not crash. This keeps it out of the load balancer until it\'s actually ready to serve.',
+  },
 };
 
 // ─── Copy button ──────────────────────────────────────────────────────────────

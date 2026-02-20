@@ -755,7 +755,7 @@ const SimCard = ({
 };
 
 // ─── SimulationPanel ──────────────────────────────────────────────────────────
-const SimulationPanel = ({ onActivity, onSimStart, onSimComplete }) => {
+const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = false }) => {
   const queryClient = useQueryClient();
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [selectedNode, setSelectedNode]   = useState('');
@@ -1416,7 +1416,9 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete }) => {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Failure Simulations</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Real Kubernetes API — nothing mocked</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {mockMode ? '⚠ Mock mode — connect a real cluster to run these' : 'Real Kubernetes API — nothing mocked'}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             {/* Progress */}
@@ -1516,7 +1518,7 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete }) => {
         )}
 
         {/* Sequential list */}
-        <div className="space-y-2">
+        <div className={`space-y-2 ${mockMode ? 'opacity-50 pointer-events-none select-none' : ''}`}>
           {simIds.map((simId) => (
             <SimCard
               key={simId}
