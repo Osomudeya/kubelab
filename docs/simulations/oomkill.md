@@ -60,5 +60,5 @@ kubectl top pod -n kubelab    # watch memory grow over time
 kubectl logs <pod> --previous # see what was happening before the kill
 ```
 
-**Next**: [DB Failure →](database.md)
+**Back**: [Drain Node ←](node-drain.md) · **Next**: [DB Failure →](database.md)
 

@@ -57,5 +57,5 @@ resources:
 
 Alert on throttle % when it exceeds 25% of total CPU time.
 
-**Back to**: [All Scenarios →](../failure-scenarios.md)
+**Back**: [DB Failure ←](database.md) · **Next**: [Cascading Failure →](cascading.md)
 

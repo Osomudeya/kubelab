@@ -58,5 +58,5 @@ kubectl get pods -n kubelab | grep Pending   # Should be empty after ~30s
 
 If pods stay Pending: remaining node may lack capacity. `kubectl describe pod <pending>` → Events section shows scheduler reason.
 
-**Next**: [OOMKill →](oomkill.md)
+**Back**: [Kill Pod ←](pod-kill.md) · **Next**: [OOMKill →](oomkill.md)
 

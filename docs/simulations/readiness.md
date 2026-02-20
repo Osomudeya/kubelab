@@ -60,5 +60,5 @@ This is how you **intentionally** remove a pod from traffic without killing it:
 
 Misconfigured probe that's too aggressive = pod removed from rotation for a random network blip. Result: 50% of traffic silently fails while both pods show `Running` in dashboards.
 
-**Back**: [Cascading Failure ←](cascading.md)
+**Back**: [Cascading Failure ←](cascading.md) · **Next**: [Observability & Grafana →](../observability.md)
 

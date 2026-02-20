@@ -2,20 +2,29 @@
 
 Break Kubernetes on purpose. Watch it self-heal.
 
+## What You Need
+
+- Mac or Linux with **12GB free RAM** (3 VMs × 4GB each)
+- [Multipass](https://multipass.run) — `brew install --cask multipass`
+- `kubectl` — `brew install kubectl`
+- ~30 minutes
+
+**No VMs yet or just want to see the UI first?** → [5-min Docker Compose preview](setup/SETUP.md) (mock data, no cluster needed)
+
 ## Quick Start
 
-**~30 minutes. Needs 3 VMs.** Full step-by-step: [MicroK8s setup guide](setup/k8s-setup.md) · For a 5-min UI preview with mock data: [Docker Compose](setup/SETUP.md)
+Full step-by-step with troubleshooting: [MicroK8s setup guide](setup/k8s-setup.md)
 
 **Node 1 (control plane):**
 ```bash
-git clone <repo> && cd kube-lab
+git clone https://github.com/Osomudeya/kubelab.git && cd kubelab
 ./scripts/setup-cluster.sh
 # Copy the join command shown at the end
 ```
 
 **Node 2 & 3 (workers):**
 ```bash
-git clone <repo> && cd kube-lab
+git clone https://github.com/Osomudeya/kubelab.git && cd kubelab
 ./scripts/join-worker-node.sh <paste-join-command>
 ```
 
@@ -29,7 +38,17 @@ Open: `http://<node-ip>:30080`
 
 ![KubeLab Dashboard](docs/images/dashboard.png)
 
-Success: `kubectl get pods -n kubelab` shows 11 pods Running.
+`kubectl get pods -n kubelab` should show **11 pods Running**:
+
+| Component | Pods |
+|-----------|------|
+| frontend | 1 |
+| backend | 2 |
+| postgres | 1 |
+| prometheus | 1 |
+| grafana | 1 |
+| kube-state-metrics | 1 |
+| node-exporter | 1 per node (2–3) |
 
 ## Simulations
 
@@ -49,7 +68,7 @@ All 7 are in the dashboard. Each simulation page has the exact kubectl commands 
 
 Grafana: `http://<node-ip>:30300` — login `admin` / `kubelab-grafana-2026`
 
-Dashboard loads automatically. No manual import needed.
+Dashboard and data source load automatically. No manual setup needed.
 
 ```bash
 # Get your node IP:
@@ -58,18 +77,23 @@ kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP
 
 [Grafana panel guide →](docs/observability.md)
 
+## Watch Out For
+
+**Join tokens expire in 60 seconds.** Run `microk8s add-node` immediately before each worker joins — not 2 minutes earlier. If it fails with `connection refused`, just generate a new token.
+
+**kubeconfig context matters.** If you have EKS or GKE configured: `kubectl config use-context microk8s` before deploying or you'll be deploying to the wrong cluster.
+
+**Both backend pods on the same node?** `kubectl get pods -n kubelab -o wide | grep backend` — if they're on the same node, draining it takes down both replicas simultaneously. Expected — it's a lab, not production.
+
 ## Troubleshooting
 
-**Pods Pending?**
-```bash
-kubectl describe pod -n kubelab <name>   # read the Events section
-```
+**Pods Pending?** `kubectl describe pod -n kubelab <name>` → read the Events section
 
 **Frontend 404?** `kubectl get svc -n kubelab frontend` — NodePort should be 30080
 
 **Backend errors?** `kubectl logs -n kubelab -l app=backend`
 
-**Grafana no data?** `kubectl get pods -n kubelab` — check prometheus and grafana are Running
+**Grafana no data?** `kubectl get pods -n kubelab` — confirm prometheus and grafana are Running
 
 **Simulations fail (403)?**
 ```bash
@@ -77,8 +101,6 @@ kubectl auth can-i delete pods --as=system:serviceaccount:kubelab:kubelab-backen
 # If "no": kubectl apply -f k8s/security/rbac.yaml
 ```
 
-**Node join fails?** `microk8s status` on the worker — may need `sudo usermod -a -G microk8s $USER && newgrp microk8s`
-
 ## Reference
 
-[Architecture](docs/architecture.md) · [All Scenarios](docs/failure-scenarios.md) · [Interview Prep](docs/interview-prep.md) · [Setup Guide](setup/SETUP.md) · [MicroK8s / 3-Node Setup](setup/k8s-setup.md)
+[Architecture](docs/architecture.md) · [All Scenarios](docs/failure-scenarios.md) · [Interview Prep](docs/interview-prep.md) · [Setup Guide](setup/SETUP.md) · [MicroK8s Setup](setup/k8s-setup.md)
