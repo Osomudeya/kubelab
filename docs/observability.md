@@ -4,13 +4,13 @@ Grafana: `http://<node-ip>:30300` — login `admin` / `kubelab-grafana-2026`
 
 The dashboard and Prometheus data source are **auto-provisioned** — they appear immediately on first login. No manual setup.
 
+> **After deploying:** wait 2–3 minutes for Prometheus to scrape all targets. Grafana panels will show "No data" until the first scrape completes. This is normal.
+
 Prometheus (ClusterIP — no NodePort):
 ```bash
 kubectl port-forward -n kubelab svc/prometheus 9090:9090
 # → http://localhost:9090
 ```
-
-![Grafana dashboard](images/grafana-dashboard.png)
 
 ## Dashboard Panels
 

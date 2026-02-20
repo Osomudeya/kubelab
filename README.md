@@ -36,8 +36,6 @@ kubectl get nodes          # All 3 Ready?
 
 Open: `http://<node-ip>:30080`
 
-![KubeLab Dashboard](docs/images/dashboard.png)
-
 `kubectl get pods -n kubelab` should show **11 pods Running**:
 
 | Component | Pods |
@@ -63,6 +61,8 @@ Run in this order — each builds on the previous:
 7. [Readiness Probe](docs/simulations/readiness.md) — Running but receiving zero traffic
 
 All 7 are in the dashboard. Each simulation page has the exact kubectl commands to run while it's happening.
+
+After the simulations: [Interview Prep →](docs/interview-prep.md) — 10 questions this lab prepares you to answer.
 
 ## Monitoring
 

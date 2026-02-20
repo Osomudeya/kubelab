@@ -17,8 +17,8 @@ Backend lives inside the cluster and controls it. When you click "Kill Random Po
 | Frontend | Deployment (1) | 30080 | React app, served by Nginx. Nginx proxies `/api/*` to backend |
 | Backend | Deployment (2) | 30081 | Node.js. Calls Kubernetes API, serves cluster state to frontend |
 | PostgreSQL | StatefulSet (1) | 5432 | Simulation logs. StatefulSet for stable name + PVC |
-| Prometheus | Deployment (1) | 30090 | Scrapes metrics every 15s, 7-day retention |
-| Grafana | Deployment (1) | 30300 | Dashboards. Login: admin/admin |
+| Prometheus | Deployment (1) | 9090 (ClusterIP — port-forward to access) | Scrapes metrics every 15s, 7-day retention |
+| Grafana | Deployment (1) | 30300 | Dashboards. Login: `admin` / `kubelab-grafana-2026` |
 | kube-state-metrics | Deployment (1) | — | Kubernetes object metrics (pod restarts, replica counts) |
 | node-exporter | DaemonSet | — | Node-level metrics (CPU, memory, disk) — one pod per node |
 

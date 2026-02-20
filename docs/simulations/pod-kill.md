@@ -9,8 +9,6 @@ kubectl get pods -n kubelab -l app=backend -w
 
 ## What You'll See
 
-![Pod kill terminal output](../images/pod-kill-output.png)
-
 ```
 NAME                       READY   STATUS        RESTARTS
 backend-6d4f8b9c7-xk2qp   2/2     Running       0

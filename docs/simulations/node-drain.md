@@ -13,8 +13,6 @@ kubectl get nodes -w
 
 ## What You'll See
 
-![Node drain terminal output](../images/node-drain-output.png)
-
 ```
 # Terminal 1 — pods move from worker-1 to worker-2
 NAME                       STATUS        NODE

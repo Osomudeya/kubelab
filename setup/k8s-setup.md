@@ -142,6 +142,8 @@ microk8s join 192.168.64.5:25000/abcdef123456/xyz789 --worker
 
 ### 4b. Set up Worker 1
 
+> **Note:** The commands below (`sudo snap install`, `sudo usermod`, `microk8s join`) run **inside the Multipass VM** — not on your Mac. `multipass shell` opens a shell into the VM.
+
 Open a new terminal tab and run:
 
 ```bash
@@ -444,9 +446,11 @@ kubectl delete namespace kubelab
 
 | Node | Role | IP | Version |
 |---|---|---|---|
-| `microk8s-vm` | Control Plane | `192.168.64.5` | v1.32.9 |
-| `kubelab-worker-1` | Worker | `192.168.64.6` | v1.28.15 |
-| `kubelab-worker-2` | Worker | `192.168.64.7` | v1.28.15 |
+| `microk8s-vm` | Control Plane | `192.168.64.5` | v1.28.x |
+| `kubelab-worker-1` | Worker | `192.168.64.6` | v1.28.x |
+| `kubelab-worker-2` | Worker | `192.168.64.7` | v1.28.x |
+
+> IPs and exact patch versions will differ on your machine. All three nodes are pinned to `--channel=1.28/stable` so versions should match.
 
 | Service | Type | Port |
 |---|---|---|

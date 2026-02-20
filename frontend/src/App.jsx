@@ -31,6 +31,15 @@ import SimFlashcard       from './components/SimFlashcard';
 function App() {
   const { data, isLoading, error } = useClusterStatus();
 
+  // Mock mode — true when running in Docker Compose without a real cluster
+  const [mockMode, setMockMode] = useState(false);
+  useEffect(() => {
+    fetch('/health')
+      .then(r => r.json())
+      .then(d => { if (d.mockMode) setMockMode(true); })
+      .catch(() => {});
+  }, []);
+
   // Activity log — narrative entries shown in WhatJustHappened
   const [activityLog, setActivityLog] = useState([]);
 
@@ -110,6 +119,22 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* ── Mock Mode Banner ── */}
+      {mockMode && (
+        <div className="bg-amber-50 border-b border-amber-300 px-4 py-2.5 text-center text-sm text-amber-800">
+          <strong className="font-semibold">⚠ Mock Mode</strong> — no Kubernetes cluster detected.
+          Simulation buttons return fake responses. No real pods are affected.{' '}
+          <a
+            href="https://github.com/Osomudeya/kubelab/blob/main/setup/k8s-setup.md"
+            target="_blank"
+            rel="noreferrer"
+            className="underline font-medium hover:text-amber-900"
+          >
+            Set up a real cluster →
+          </a>
+        </div>
+      )}
 
       {/* ── Main ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

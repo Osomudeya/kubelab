@@ -59,9 +59,12 @@ app.use((req, res, next) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+  const fs = require('fs');
+  const inCluster = fs.existsSync('/var/run/secrets/kubernetes.io/serviceaccount/token');
   res.status(200).json({
     success: true,
     status: 'healthy',
+    mockMode: !inCluster,
     timestamp: new Date().toISOString()
   });
 });

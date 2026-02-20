@@ -230,10 +230,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 echo "📝 Next Steps:"
-echo "   1. Access the frontend dashboard and explore the cluster"
-echo "   2. Import Grafana dashboard: k8s/observability/dashboards/cluster-health.json"
+echo "   1. Open the frontend and explore the cluster"
+echo "   2. Open Grafana — dashboard and data source are auto-provisioned, no import needed"
 echo "   3. Run smoke tests: ./scripts/smoke-test.sh"
-echo "   4. Try failure simulations from the frontend"
+echo "   4. Try failure simulations from the frontend (give Prometheus 2-3 min to scrape all targets)"
 echo ""
 
 echo "✅ KubeLab deployment complete!"
