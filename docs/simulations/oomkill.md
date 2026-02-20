@@ -18,8 +18,6 @@ backend-6d4f8b9c7-xk2qp  2/2     Running   1          ← restarted
 
 ## Find the Evidence
 
-![OOMKill describe output](../images/oomkill-describe.png)
-
 ```bash
 kubectl describe pod -n kubelab <backend-pod> | grep -A 8 "Last State:"
 ```

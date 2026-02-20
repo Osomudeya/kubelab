@@ -119,10 +119,10 @@ When a pod exceeds its memory limit, Kubernetes kills it (OOM kill). This is har
 
 **What Happens**:
 1. Pod exceeds memory limit
-2. Kubernetes sends SIGTERM (graceful shutdown)
-3. If pod doesn't terminate, SIGKILL after grace period
+2. Linux kernel OOM killer sends SIGKILL directly — no SIGTERM, no grace period
+3. Pod exits with code 137 (128 + SIGKILL signal 9)
 4. Pod restarts (if part of a Deployment)
-5. Metrics show restart count increase
+5. Metrics show restart count increase with reason `OOMKilled`
 
 **Why This Matters**: Without limits, a memory leak could crash the entire node. Limits contain the damage to a single pod.
 
@@ -316,7 +316,7 @@ Security isn't optional in production—it's essential. These patterns protect y
 
 **Important**: KubeLab is a learning environment, not a production deployment. Some security measures are intentionally simplified or omitted for educational purposes:
 
-1. **Default Grafana Credentials**: `admin/admin` - In production, use strong passwords and enable OAuth/SSO
+1. **Simple Grafana Credentials**: `admin/kubelab-grafana-2026` — not a secret, hardcoded in `k8s/secrets.yaml`. In production, use a secrets manager and enable OAuth/SSO.
 2. **Simple PostgreSQL Password**: The database password is in a Kubernetes Secret but uses a simple value - In production, use a secrets manager (Vault, AWS Secrets Manager, etc.)
 3. **No TLS/HTTPS**: Services communicate over HTTP - In production, all traffic should be encrypted with TLS
 4. **No Image Scanning**: Docker images are not scanned for vulnerabilities - In production, scan all images before deployment
