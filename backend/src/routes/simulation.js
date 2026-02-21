@@ -13,6 +13,10 @@ const { k8sOperationCounter, k8sOperationDuration, simulationEventsCounter } = r
 const DEFAULT_NAMESPACE = 'kubelab';
 const BACKEND_LABEL_SELECTOR = 'app=backend';
 
+// Concurrency guard: only one in-process stress sim (cpu or memory) at a time.
+// Prevents queueing other API requests behind the stress loop.
+let activeSimulation = null;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/simulate/kill-pod
 // Deletes a random backend pod.
@@ -87,10 +91,13 @@ router.post('/kill-pod', async (req, res, next) => {
   }
 });
 
+const DRAIN_TIMEOUT_MS = 90000;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/simulate/drain-node
-// Cordons a worker node (marks it unschedulable) then evicts all pods on it.
-// Pods reschedule to the remaining nodes.
+// Cordons a worker node (marks it unschedulable) then evicts all pods on it
+// using the Eviction API (respects PodDisruptionBudgets). 90s timeout with
+// partial success response if not all pods evict in time.
 // Use POST /api/simulate/uncordon-node to reverse this.
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/drain-node', async (req, res, next) => {
@@ -120,34 +127,62 @@ router.post('/drain-node', async (req, res, next) => {
     }
 
     // Step 1: Cordon — mark the node unschedulable
-    // patchNode params: name, body, pretty, dryRun, fieldManager, fieldValidation, force, options
+    const patchOpts = { headers: { 'Content-Type': 'application/merge-patch+json' } };
     await coreV1Api.patchNode(
       nodeName,
       { spec: { unschedulable: true } },
-      undefined, undefined, undefined, undefined, undefined,
-      { headers: { 'Content-Type': 'application/merge-patch+json' } }
+      undefined, undefined, undefined, undefined, patchOpts
     );
 
     logger.info('Node cordoned', { nodeName });
 
-    // Step 2: Evict all non-DaemonSet pods from this node
+    // Step 2: Evict all non-DaemonSet pods using Eviction API (respects PDBs)
     const allPodsResponse = await k8sApi.listPodForAllNamespaces();
     const podsOnNode = allPodsResponse.body.items.filter(p => p.spec.nodeName === nodeName);
 
     const results = [];
+    const drainStart = Date.now();
+
     for (const pod of podsOnNode) {
-      // Skip DaemonSet pods — they must run on every node
+      if (Date.now() - drainStart > DRAIN_TIMEOUT_MS) {
+        results.push({ podName: pod.metadata.name, skipped: true, reason: 'Drain timeout reached' });
+        continue;
+      }
+
       if (pod.metadata.ownerReferences?.some(ref => ref.kind === 'DaemonSet')) {
         results.push({ podName: pod.metadata.name, skipped: true, reason: 'DaemonSet pod' });
         continue;
       }
 
+      const evictionBody = {
+        apiVersion: 'policy/v1',
+        kind: 'Eviction',
+        metadata: { name: pod.metadata.name, namespace: pod.metadata.namespace }
+      };
+
       try {
-        await k8sApi.deleteNamespacedPod(pod.metadata.name, pod.metadata.namespace, undefined, 30);
+        if (typeof coreV1Api.createNamespacedPodEviction === 'function') {
+          await coreV1Api.createNamespacedPodEviction(
+            pod.metadata.name,
+            pod.metadata.namespace,
+            evictionBody
+          );
+        } else {
+          // Fallback: older client-node without Eviction API (PDBs not respected)
+          logger.warn('createNamespacedPodEviction not available, using deleteNamespacedPod');
+          await k8sApi.deleteNamespacedPod(pod.metadata.name, pod.metadata.namespace, undefined, 30);
+        }
         results.push({ podName: pod.metadata.name, namespace: pod.metadata.namespace, evicted: true });
         logger.info('Pod evicted', { podName: pod.metadata.name, nodeName });
       } catch (e) {
-        results.push({ podName: pod.metadata.name, evicted: false, error: e.message });
+        const is429 = e.response?.statusCode === 429;
+        results.push({
+          podName: pod.metadata.name,
+          evicted: false,
+          error: e.message,
+          pdbBlocked: is429
+        });
+        if (is429) logger.info('Eviction blocked by PDB', { podName: pod.metadata.name });
       }
     }
 
@@ -156,19 +191,25 @@ router.post('/drain-node', async (req, res, next) => {
     k8sOperationCounter.inc({ operation: 'drain', resource: 'node', status: 'success' });
     simulationEventsCounter.inc({ type: 'node_drain' });
 
+    const evicted = results.filter(r => r.evicted).length;
+    const timedOut = results.some(r => r.reason === 'Drain timeout reached');
+
     res.json({
       success: true,
       data: {
-        message: `Node ${nodeName} cordoned and drained. Pods are rescheduling to other nodes.`,
+        message: timedOut
+          ? `Node ${nodeName} cordoned. Drain timed out after 90s — ${evicted} pod(s) evicted; remaining may still be terminating.`
+          : `Node ${nodeName} cordoned and drained. Pods are rescheduling to other nodes.`,
         nodeName,
         cordoned: true,
         evictionResults: results,
         summary: {
           total: podsOnNode.length,
-          evicted: results.filter(r => r.evicted).length,
+          evicted,
           skipped: results.filter(r => r.skipped).length,
           failed: results.filter(r => !r.evicted && !r.skipped).length
         },
+        timedOut,
         whatToWatch: `kubectl get nodes && kubectl get pods -n kubelab -o wide`,
         howToRestore: `POST /api/simulate/uncordon-node with { "nodeName": "${nodeName}" }`
       }
@@ -193,7 +234,7 @@ router.post('/drain-node', async (req, res, next) => {
 // POST /api/simulate/uncordon-node
 // Reverses a drain — marks the node schedulable again so new pods can land on it.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/uncordon-node', async (req, res, next) => {
+router.post('/uncordon-node', async (req, res) => {
   try {
     const { coreV1Api } = getK8sClient();
     const { nodeName } = req.body;
@@ -204,12 +245,11 @@ router.post('/uncordon-node', async (req, res, next) => {
 
     logger.info('Uncordoning node', { nodeName });
 
-    // patchNode params: name, body, pretty, dryRun, fieldManager, fieldValidation, force, options
+    const patchOpts = { headers: { 'Content-Type': 'application/merge-patch+json' } };
     await coreV1Api.patchNode(
       nodeName,
       { spec: { unschedulable: false } },
-      undefined, undefined, undefined, undefined, undefined,
-      { headers: { 'Content-Type': 'application/merge-patch+json' } }
+      undefined, undefined, undefined, undefined, patchOpts
     );
 
     simulationEventsCounter.inc({ type: 'node_uncordon' });
@@ -224,11 +264,16 @@ router.post('/uncordon-node', async (req, res, next) => {
       }
     });
   } catch (error) {
-    logger.error('Failed to uncordon node', { error: error.message });
-    if (error.statusCode === 404) {
+    const status = error.statusCode || error.response?.statusCode || 500;
+    const message = error.body?.message || error.message || 'Failed to uncordon node.';
+    logger.error('Failed to uncordon node', { error: message, status });
+    if (status === 404) {
       return res.status(404).json({ success: false, error: 'Node not found.' });
     }
-    next(error);
+    if (status === 403) {
+      return res.status(403).json({ success: false, error: 'Permission denied — backend cannot patch nodes. Check ClusterRoleBinding for kubelab-backend-sa.' });
+    }
+    return res.status(status >= 400 && status < 600 ? status : 500).json({ success: false, error: message });
   }
 });
 
@@ -248,6 +293,14 @@ router.post('/uncordon-node', async (req, res, next) => {
 // The OTHER backend replica continues serving requests normally.
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/cpu-stress', (req, res) => {
+  if (activeSimulation) {
+    return res.status(409).json({
+      success: false,
+      error: `Simulation already running: ${activeSimulation}. Wait for it to complete.`
+    });
+  }
+  activeSimulation = 'cpu-stress';
+
   const durationMs = (req.body.durationSeconds || 60) * 1000;
   const podName = process.env.HOSTNAME || 'unknown';
 
@@ -271,27 +324,27 @@ router.post('/cpu-stress', (req, res) => {
     }
   });
 
-  // Burn CPU in 200 ms chunks, yielding between each so health-check requests
+  // Burn CPU in 800 ms chunks, yielding between each so health-check requests
   // can still get through (the pod stays alive — we want to show throttling).
+  // Longer chunks keep the pod pinned near the 200m limit so "kubectl top" shows it clearly.
   const endTime = Date.now() + durationMs;
+  const chunkMs = 800;
   let elapsed = 0;
 
   const burnChunk = () => {
     if (Date.now() >= endTime) {
+      activeSimulation = null;
       logger.info('CPU stress complete', { podName, elapsed: `${Math.round(elapsed / 1000)}s` });
       return;
     }
-    // Tight loop for 200 ms
-    const chunkEnd = Date.now() + 200;
+    const chunkEnd = Date.now() + chunkMs;
     while (Date.now() < chunkEnd) {
-      // Intentionally un-optimisable: Math.random() prevents dead-code elimination
       Math.sqrt(Math.random() * Math.random());
     }
-    elapsed += 200;
+    elapsed += chunkMs;
     if (elapsed % 10000 === 0) {
       logger.info('CPU stress running…', { podName, elapsed: `${elapsed / 1000}s` });
     }
-    // Yield to the event loop before next chunk (lets health probes through)
     setImmediate(burnChunk);
   };
 
@@ -314,8 +367,68 @@ router.post('/cpu-stress', (req, res) => {
 // The OTHER backend replica keeps serving requests during the OOMKill.
 // Exit code 137 = 128 + SIGKILL (signal 9) — the kernel sent no warning.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/memory-stress', (req, res) => {
-  const podName = process.env.HOSTNAME || 'unknown';
+router.post('/memory-stress', async (req, res) => {
+  if (activeSimulation) {
+    return res.status(409).json({
+      success: false,
+      error: `Simulation already running: ${activeSimulation}. Wait for it to complete.`
+    });
+  }
+
+  const targetPodName = req.query.target || req.body.target;
+  const thisPodName = process.env.HOSTNAME || 'unknown';
+
+  // If target is set and is a different pod, proxy the request to that pod so stress runs there.
+  if (targetPodName && targetPodName !== thisPodName) {
+    try {
+      const { k8sApi } = getK8sClient();
+      const podsResponse = await k8sApi.listNamespacedPod(
+        DEFAULT_NAMESPACE, undefined, undefined, undefined, undefined, BACKEND_LABEL_SELECTOR
+      );
+      const targetPod = podsResponse.body.items.find(p => p.metadata.name === targetPodName);
+      if (!targetPod || !targetPod.status?.podIP) {
+        return res.status(400).json({
+          success: false,
+          error: `Target pod "${targetPodName}" not found or has no IP. Use kubelab namespace backend pod name.`
+        });
+      }
+      const podIP = targetPod.status.podIP;
+      const backendPort = process.env.PORT || 3000;
+      const body = JSON.stringify(req.body || {});
+      const data = await new Promise((resolve, reject) => {
+        const http = require('http');
+        const reqOpts = {
+          hostname: podIP,
+          port: backendPort,
+          path: '/api/simulate/memory-stress',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+        };
+        const proxyReq = http.request(reqOpts, (proxyRes) => {
+          let chunks = '';
+          proxyRes.setEncoding('utf8');
+          proxyRes.on('data', d => { chunks += d; });
+          proxyRes.on('end', () => {
+            try { resolve({ status: proxyRes.statusCode, data: JSON.parse(chunks) }); }
+            catch { resolve({ status: proxyRes.statusCode, data: {} }); }
+          });
+        });
+        proxyReq.on('error', reject);
+        proxyReq.write(body);
+        proxyReq.end();
+      });
+      return res.status(data.status).json(data.data);
+    } catch (err) {
+      logger.error('Memory stress proxy failed', { error: err.message, target: targetPodName });
+      return res.status(502).json({
+        success: false,
+        error: `Failed to reach target pod "${targetPodName}": ${err.message}`
+      });
+    }
+  }
+
+  activeSimulation = 'memory-stress';
+  const podName = thisPodName;
   const chunkMB  = 50;                        // allocate 50 MB per step
   const maxChunks = 8;                        // 8 × 50 MB = 400 MB > 256 Mi limit
   const delayMs  = 800;                       // pause between chunks so logs stay readable
@@ -519,7 +632,7 @@ router.post('/kill-all-pods', async (req, res, next) => {
         namespace,
         whatToWatch: [
           'kubectl get pods -n kubelab -w',
-          'kubectl get endpoints -n kubelab backend-service',
+          'kubectl get endpoints -n kubelab backend',
           '# Watch: both pods Terminating simultaneously, endpoints go empty, new pods start'
         ]
       }
@@ -573,7 +686,7 @@ router.post('/fail-readiness', (req, res) => {
       whatToWatch: [
         'kubectl get pods -n kubelab',
         '# STATUS stays Running — liveness passes, pod never restarts',
-        'kubectl get endpoints -n kubelab backend-service',
+        'kubectl get endpoints -n kubelab backend',
         '# This pod\'s IP disappears from endpoints — traffic routes to the other replica',
         'kubectl describe pod -n kubelab <this-pod>',
         '# Conditions: Ready=False, but ContainersReady=True'
@@ -601,7 +714,7 @@ router.post('/restore-readiness', (req, res) => {
       message: `Readiness probe on "${podName}" restored. This pod will rejoin Service endpoints within 5-10 seconds.`,
       podName,
       whatToWatch: [
-        'kubectl get endpoints -n kubelab backend-service',
+        'kubectl get endpoints -n kubelab backend',
         '# This pod\'s IP will reappear once the readiness probe passes'
       ]
     }

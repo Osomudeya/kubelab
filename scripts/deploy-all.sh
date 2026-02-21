@@ -212,7 +212,7 @@ echo "📊 Grafana:"
 echo "   NodePort: http://$NODE_IP:30300"
 echo "   Port-forward: kubectl port-forward -n kubelab svc/grafana 3000:3000"
 echo "   Then visit: http://localhost:3000"
-echo "   Credentials: use the admin-user/admin-password from k8s/secrets.yaml"
+echo "   Login: admin / kubelab-grafana-2026"
 echo ""
 
 echo "📈 Prometheus:"

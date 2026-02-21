@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # Setup MicroK8s Multi-Node Cluster for KubeLab
-# This script sets up MicroK8s on the control plane node
-# Worker nodes should be joined using the output token
+# Optional shortcut for repeat runs. First time? Use the step-by-step guide:
+#   setup/k8s-cluster-setup.md — run each command so you see what MicroK8s does.
+# This script runs inside the control plane VM. Workers: use join-worker-node.sh.
 
 set -e
 

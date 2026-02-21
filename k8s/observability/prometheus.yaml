@@ -131,6 +131,27 @@ data:
             target_label: pod
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
+
+      # Scrape kubelet cAdvisor for per-container CPU/memory (for CPU stress + OOMKill screenshots)
+      - job_name: 'kubelet-cadvisor'
+        kubernetes_sd_configs:
+          - role: node
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_node_address_InternalIP]
+            action: replace
+            target_label: __address__
+            replacement: $1:10250
+          - source_labels: [__meta_kubernetes_node_name]
+            action: replace
+            target_label: node
+            regex: (.+)
+            replacement: ${1}
+          - replacement: /metrics/cadvisor
+            target_label: __metrics_path__
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -162,12 +183,26 @@ spec:
     metadata:
       labels:
         app: prometheus
+      annotations:
+        # Change this when prometheus-config ConfigMap changes so pods roll and pick up new config
+        prometheus-config-reload: "kubelet-cadvisor"
     spec:
       serviceAccountName: prometheus
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534  # nobody user
         fsGroup: 65534
+      initContainers:
+        # Remove stale lock file from previous crash/restart so Prometheus can open storage
+        - name: remove-stale-lock
+          image: busybox:1.36
+          command: ["sh", "-c", "rm -f /prometheus/lock; exit 0"]
+          volumeMounts:
+            - name: storage
+              mountPath: /prometheus
+          securityContext:
+            runAsUser: 65534
+            runAsNonRoot: true
       containers:
         - name: prometheus
           image: prom/prometheus:v2.48.0

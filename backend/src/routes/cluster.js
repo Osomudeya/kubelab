@@ -106,20 +106,29 @@ router.get('/status', async (req, res, next) => {
       return res.json(mockResponse);
     }
 
-    // Format pod information
-    const pods = podsResponse.body.items.map(pod => ({
-      name: pod.metadata.name,
-      namespace: pod.metadata.namespace,
-      status: pod.status.phase,
-      nodeName: pod.spec.nodeName,
-      createdAt: pod.metadata.creationTimestamp,
-      labels: pod.metadata.labels,
-      containers: pod.spec.containers.map(c => ({
-        name: c.name,
-        image: c.image,
-        ready: pod.status.containerStatuses?.find(cs => cs.name === c.name)?.ready || false
-      }))
-    }));
+    // Format pod information — include container state (OOMKilled, CrashLoopBackOff) and restart count
+    const pods = podsResponse.body.items.map(pod => {
+      const containerStatus = pod.status.containerStatuses?.[0];
+      const waitingReason = containerStatus?.state?.waiting?.reason;
+      const terminatedReason = containerStatus?.lastState?.terminated?.reason;
+      const actualStatus = (waitingReason || terminatedReason || pod.status.phase || '').toLowerCase();
+      const restartCount = containerStatus?.restartCount ?? 0;
+      return {
+        name: pod.metadata.name,
+        namespace: pod.metadata.namespace,
+        status: pod.status.phase,
+        actualStatus: actualStatus || pod.status.phase?.toLowerCase(),
+        restartCount,
+        nodeName: pod.spec.nodeName,
+        createdAt: pod.metadata.creationTimestamp,
+        labels: pod.metadata.labels,
+        containers: pod.spec.containers.map(c => ({
+          name: c.name,
+          image: c.image,
+          ready: pod.status.containerStatuses?.find(cs => cs.name === c.name)?.ready || false
+        }))
+      };
+    });
 
     // Format node information
     const nodes = nodesResponse.body.items.map(node => ({

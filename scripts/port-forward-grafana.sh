@@ -7,7 +7,7 @@ set -e
 
 echo "🔗 Setting up port-forward to Grafana..."
 echo "   Access Grafana at: http://localhost:3000"
-echo "   Default credentials: admin/admin"
+echo "   Login: admin / kubelab-grafana-2026"
 echo ""
 echo "   Press Ctrl+C to stop"
 echo ""

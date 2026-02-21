@@ -1,30 +1,23 @@
 # Grafana Dashboards
 
-This directory contains custom Grafana dashboards for KubeLab.
+This directory contains custom Grafana dashboards for KubeLab. The **Cluster Health** dashboard and Prometheus data source are **auto-provisioned** when Grafana starts — no manual import needed for normal use.
 
-## Importing Dashboards
+## Accessing Grafana
 
-### Method 1: Via Grafana UI (Recommended)
-
-1. Access Grafana at `http://<node-ip>:30300`
-2. Login with credentials:
-   - Username: `admin`
-   - Password: `admin`
-3. Navigate to **Dashboards** → **Import**
-4. Click **Upload JSON file**
-5. Select `cluster-health.json` from this directory
-6. Click **Import**
-
-### Method 2: Via kubectl port-forward
-
+**Recommended (port-forward):**
 ```bash
-# Port forward to Grafana
 kubectl port-forward -n kubelab svc/grafana 3000:3000
-
-# Access at http://localhost:3000
 ```
+Open http://localhost:3000 — login: `admin` / `kubelab-grafana-2026`.
 
-Then follow steps 3-6 from Method 1.
+**NodePort:** Open http://\<node-ip\>:30300 (same login).
+
+## Manual import (optional)
+
+If you need to re-import the dashboard:
+
+1. Access Grafana (port-forward or NodePort above). Login: `admin` / `kubelab-grafana-2026`.
+2. Go to **Dashboards** → **Import** → **Upload JSON file** → select `cluster-health.json` from this directory.
 
 ## Dashboard Overview
 
@@ -69,7 +62,7 @@ To modify dashboards:
 
 If metrics don't appear:
 
-1. Check Prometheus targets: `http://<node-ip>:<prometheus-port>/targets`
+1. Port-forward Prometheus: `kubectl port-forward -n kubelab svc/prometheus 9090:9090` then open http://localhost:9090/targets
 2. Verify all services are running: `kubectl get pods -n kubelab`
-3. Check Prometheus datasource in Grafana: **Configuration** → **Data Sources**
+3. In Grafana: **Connections** → **Data Sources** → Prometheus → **Save & Test**
 

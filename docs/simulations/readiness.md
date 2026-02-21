@@ -8,7 +8,7 @@ One backend pod fails its readiness probe for 120 seconds. Pod stays `Running`. 
 kubectl get pods -n kubelab -w
 
 # Terminal 2 — watch where traffic actually goes
-kubectl get endpoints -n kubelab backend-service -w
+kubectl get endpoints -n kubelab backend -w
 ```
 
 ## What You'll See
@@ -23,8 +23,8 @@ backend-abc-def           2/2     Running   0     ← this one still healthy
 Terminal 2 (endpoints):
 ```
 NAME             ENDPOINTS
-backend-service  10.1.x.x:3000,10.1.y.y:3000   ← before
-backend-service  10.1.y.y:3000                  ← failing pod's IP removed
+backend  10.1.x.x:3000,10.1.y.y:3000   ← before
+backend  10.1.y.y:3000                  ← failing pod's IP removed
 ```
 
 The failing pod is `Running` but receiving **zero traffic**. It re-enters endpoints automatically after 120 seconds (or click "Restore Readiness Now").

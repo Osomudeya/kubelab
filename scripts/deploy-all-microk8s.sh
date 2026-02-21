@@ -68,4 +68,4 @@ echo ""
 echo "🌐 Access:"
 NODE_IP=$($KUBECTL get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null || echo "localhost")
 echo "   Frontend: http://$NODE_IP:30080"
-echo "   Grafana:  http://$NODE_IP:30300 (admin/admin)"
+echo "   Grafana:  http://$NODE_IP:30300 (admin / kubelab-grafana-2026)"

@@ -1,6 +1,6 @@
 # Kubernetes Setup Guide (MicroK8s — 3-Node Cluster)
 
-This guide walks you through creating a real 3-node Kubernetes cluster using Multipass VMs on macOS and deploying the full KubeLab stack on it. Follow every step in order.
+This guide walks you through creating a real 3-node Kubernetes cluster using Multipass VMs on **macOS, Linux, or Windows** and deploying the full KubeLab stack. **First time? Run every command below** — you’ll see MicroK8s install, addons enable, and workers join. Done this before? Optional shortcuts: `./scripts/setup-cluster.sh` (inside the control plane VM) and `./scripts/join-worker-node.sh <token>` (on each worker).
 
 **What you'll end up with:**
 - 1 control-plane node (`microk8s-vm` — `192.168.64.5`)
@@ -11,16 +11,16 @@ This guide walks you through creating a real 3-node Kubernetes cluster using Mul
 
 ## Prerequisites
 
-- macOS with [Multipass](https://multipass.run) installed (`brew install --cask multipass`)
-- `kubectl` installed (`brew install kubectl`)
-- Docker (for building custom images — skip if using the prebuilt `veeno/kubelab-*` images, which are public and don't require a Docker Hub account)
-- ~8GB of free RAM and ~60GB of free disk on your Mac
+- **Multipass** — [Install for your OS](https://multipass.run): macOS (`brew install --cask multipass`), Linux (snap or .deb from multipass.run), Windows (installer from multipass.run)
+- **kubectl** — [Install](https://kubernetes.io/docs/tasks/tools/): macOS (`brew install kubectl`), Linux (`snap install kubectl --classic` or distro package), Windows (`winget install Kubernetes.kubectl` or Chocolatey)
+- **Docker** — only if building custom images; prebuilt `veeno/kubelab-*` images are public (no Docker Hub account needed)
+- **~8GB free RAM and ~60GB free disk** on your machine (host, not the VMs)
 
 ---
 
 ## Part 1 — Create the VMs
 
-Run these commands on your Mac. Each VM gets 2 CPUs, 4GB RAM, and 20GB disk.
+Run these commands on your **host** (macOS, Linux, or Windows). Each VM gets 2 CPUs, 4GB RAM, and 20GB disk.
 
 ```bash
 # Control plane
@@ -59,20 +59,26 @@ multipass shell microk8s-vm
 
 Inside the VM:
 
+**Why this matters:** MicroK8s runs Kubernetes as a snap — isolated and production-compatible. Version 1.28 is stable. You get a real cluster, not a simulator.
+
 ```bash
 # Install MicroK8s (pinned to 1.28 for stability)
 sudo snap install microk8s --classic --channel=1.28/stable
 
-# Add your user to the microk8s group
+# Add your user to the microk8s group — without this, every kubectl needs sudo
 sudo usermod -a -G microk8s $USER
 sudo chown -f -R $USER ~/.kube
 newgrp microk8s
 
-# Wait until MicroK8s is fully ready
+# Wait until MicroK8s is fully ready (API server, etcd, scheduler)
 microk8s status --wait-ready
 ```
 
-Enable the required addons:
+**Addons** — enable these one at a time so you see what each does:
+
+- **dns** — Without it, pods find each other only by IP (which changes on restart). With DNS, the backend can connect to `postgres` by name.
+- **storage** — Containers start with an empty filesystem. This addon provides PersistentVolumes so PostgreSQL data survives pod restarts.
+- **metrics-server** — Enables `kubectl top nodes` and `kubectl top pods`; also used by Horizontal Pod Autoscaler in production.
 
 ```bash
 microk8s enable dns
@@ -80,13 +86,9 @@ microk8s enable storage
 microk8s enable metrics-server
 ```
 
-> `dns` — lets pods resolve each other by name  
-> `storage` — provides `hostPath`-based PersistentVolumes  
-> `metrics-server` — enables `kubectl top nodes/pods`
-
 ---
 
-## Part 3 — Configure kubectl on Your Mac
+## Part 3 — Configure kubectl on Your Host
 
 Still inside `microk8s-vm`, export the kubeconfig:
 
@@ -94,13 +96,14 @@ Still inside `microk8s-vm`, export the kubeconfig:
 microk8s config
 ```
 
-Copy the entire output. Back on your **Mac**, paste it:
+Copy the entire output. Back on your **host** (macOS/Linux: use `~/.kube`; Windows: use `%USERPROFILE%\.kube`), run:
 
 ```bash
-# On your Mac
+# macOS/Linux
 mkdir -p ~/.kube
 multipass exec microk8s-vm -- microk8s config > ~/.kube/config-microk8s
 ```
+Windows PowerShell: `multipass exec microk8s-vm -- microk8s config | Out-File -Encoding utf8 $env:USERPROFILE\.kube\config-microk8s`
 
 If you have other clusters (EKS, GKE), merge configs instead of overwriting:
 
@@ -126,6 +129,8 @@ kubectl get nodes
 
 ### 4a. Generate a join token (on the control plane)
 
+**Why this matters:** Workers don’t know about the control plane by default. The join token is a one-time credential that lets a worker find the control plane, authenticate, and establish secure communication. Tokens expire for security.
+
 ```bash
 multipass shell microk8s-vm
 microk8s add-node
@@ -142,7 +147,7 @@ microk8s join 192.168.64.5:25000/abcdef123456/xyz789 --worker
 
 ### 4b. Set up Worker 1
 
-> **Note:** The commands below (`sudo snap install`, `sudo usermod`, `microk8s join`) run **inside the Multipass VM** — not on your Mac. `multipass shell` opens a shell into the VM.
+> **Note:** The commands below (`sudo snap install`, `sudo usermod`, `microk8s join`) run **inside the Multipass VM** — not on your host. `multipass shell` opens a shell into the VM.
 
 Open a new terminal tab and run:
 
@@ -196,7 +201,7 @@ microk8s join 192.168.64.5:25000/<your-new-token-here> --worker
 
 ## Part 5 — Verify the Cluster
 
-Back on your **Mac**:
+Back on your **host**:
 
 ```bash
 kubectl get nodes
@@ -278,52 +283,45 @@ Expected output:
 
 ---
 
-## Part 9 — Access the Services
+## Part 9 — Open the KubeLab UI, Grafana, and Prometheus (side by side)
 
-### Option A — NodePort (direct VM access)
-
-```bash
-# Get the control-plane IP
-NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-echo "Frontend: http://$NODE_IP:30080"
-echo "Grafana:  http://$NODE_IP:30300"
-```
-
-Open in your browser. Any of the 3 node IPs will work for NodePort access.
-
-### Option B — Port-forward (works from any Mac)
+You need all three running so you can trigger failures in the KubeLab UI and watch metrics in Grafana at the same time. Run each port-forward in its own terminal (or in background with `&`):
 
 ```bash
-# Run both in the background
-kubectl port-forward -n kubelab svc/frontend 8080:80 &
-kubectl port-forward -n kubelab svc/grafana 3000:3000 &
+# Terminal 1 — KubeLab UI (trigger simulations here)
+kubectl port-forward -n kubelab svc/frontend 8080:80
+# Open http://localhost:8080
+
+# Terminal 2 — Grafana (watch dashboards while you simulate)
+kubectl port-forward -n kubelab svc/grafana 3000:3000
+# Open http://localhost:3000 — login: admin / kubelab-grafana-2026
+
+# Terminal 3 — Prometheus (optional; for ad-hoc queries)
+kubectl port-forward -n kubelab svc/prometheus 9090:9090
+# Open http://localhost:9090
 ```
 
-Then open:
+**Workflow:** Open the KubeLab UI and Grafana in separate browser tabs or windows side by side. Click a simulation in the UI (e.g. Kill Pod, Memory Stress), then watch Grafana — pod restarts, memory usage, HTTP errors, and simulation events update live. No setup in Grafana: the Cluster Health dashboard and Prometheus data source are auto-provisioned.
 
-| Service | URL | Credentials |
-|---|---|---|
-| **Frontend Dashboard** | http://localhost:8080 | — |
-| **Grafana** | http://localhost:3000 | `admin` / `kubelab-grafana-2026` |
-| **Prometheus** | http://localhost:9090 | — (run `kubectl port-forward -n kubelab svc/prometheus 9090:9090`) |
-| **Backend API** | http://localhost:3001 | — (run `kubectl port-forward -n kubelab svc/backend 3001:3000`) |
+| Service | Port-forward | URL |
+|---------|--------------|-----|
+| **Frontend** | `kubectl port-forward -n kubelab svc/frontend 8080:80` | http://localhost:8080 |
+| **Grafana** | `kubectl port-forward -n kubelab svc/grafana 3000:3000` | http://localhost:3000 |
+| **Prometheus** | `kubectl port-forward -n kubelab svc/prometheus 9090:9090` | http://localhost:9090 |
 
-Stop port-forwards:
-```bash
-pkill -f "kubectl port-forward"
-```
+Stop port-forwards: `pkill -f "kubectl port-forward"`
+
+*Alternative (NodePort):* Frontend at `http://<node-ip>:30080`, Grafana at `http://<node-ip>:30300`. Prometheus has no NodePort — use port-forward.
 
 ---
 
-## Part 10 — Open Grafana
+## Part 10 — What you see in Grafana
 
-Open `http://localhost:3000` (or `http://<node-ip>:30300`).
+Open http://localhost:3000 (after starting the Grafana port-forward). Login: `admin` / `kubelab-grafana-2026`.
 
-Login: `admin` / `kubelab-grafana-2026`
+The **KubeLab Cluster Health** dashboard and the **Prometheus** data source are auto-provisioned — no manual import. Panels show pod count, node CPU/memory, HTTP request rate, restart counts, and simulation events. Use this dashboard while you run simulations in the KubeLab UI to see the impact in real time.
 
-The **KubeLab Cluster Health** dashboard and the **Prometheus** data source are auto-provisioned — they load automatically when Grafana starts. No manual import or data source setup required.
-
-You'll see live panels: pod count, node CPU/memory, HTTP request rate, restart counts, simulation events.
+**After each simulation:** Run sims in the UI in order (Kill Pod, Drain Node, OOMKill, DB Failure, CPU Stress, Cascading, Readiness). After you run one, open the matching doc from the [README Simulations section](../README.md#simulations) to go deeper — same order. Each doc has the exact kubectl commands, what to watch, and production insight. The UI also shows a "Read the full guide" link after each sim.
 
 ---
 
@@ -373,6 +371,18 @@ kubectl logs -n kubelab -l app.kubernetes.io/name=kube-state-metrics
 
 - `i/o timeout` to the API server → NetworkPolicy was blocking egress. Fixed by adding `allow-kube-state-metrics-egress` policy in `network-policies.yaml`.
 - `seccomp` errors → The backend manifest uses `seccompProfile: RuntimeDefault`. MicroK8s 1.28 on Ubuntu 22.04 supports this. If you see seccomp-related errors on older kernels, edit `k8s/base/backend.yaml` and remove the `seccompProfile` block from the pod-level `securityContext`.
+
+### Pod stuck in ContainerCreating (e.g. postgres-0)
+
+**First:** Wait 3–5 minutes. The network on a new worker can take a moment to be ready.
+
+**Still stuck?** Delete the pod so Kubernetes recreates it (often on a different node):
+
+```bash
+kubectl delete pod -n kubelab postgres-0
+```
+
+Watch it come back: `kubectl get pods -n kubelab -w`. If the *new* postgres pod also stays in ContainerCreating, the worker node’s network isn’t ready yet — restart that VM (`multipass restart kubelab-worker-1`), wait 2 minutes, then run the delete command again.
 
 ### Backend can't reach the Kubernetes API
 
@@ -439,6 +449,14 @@ kubectl describe pod -n kubelab <pod-name>
 # Delete everything (destructive)
 kubectl delete namespace kubelab
 ```
+
+---
+
+## What's next
+
+1. **Run simulations in order** in the KubeLab UI (Kill Pod → Drain Node → … → Readiness).
+2. **After each sim**, open the matching doc from the [README Simulations section](../README.md#simulations) or click "Read the full guide" in the UI.
+3. **Interview prep:** [docs/interview-prep.md](../docs/interview-prep.md) — 10 questions this lab prepares you to answer.
 
 ---
 

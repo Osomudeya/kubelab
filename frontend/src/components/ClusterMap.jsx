@@ -37,7 +37,7 @@ const POD_DEFAULT_STYLE = 'bg-gray-100 border-gray-300 text-gray-600';
 
 function podChipStyle(pod) {
   const isSimulation = pod.name?.includes('cpu-stress') || pod.name?.includes('mem-stress');
-  const status = pod.status?.toLowerCase();
+  const status = (pod.actualStatus || pod.status)?.toLowerCase();
   if (isSimulation) return SIM_STATUS_STYLES[status] || SIM_DEFAULT_STYLE;
   return POD_STATUS_STYLES[status] || POD_DEFAULT_STYLE;
 }
@@ -66,11 +66,13 @@ function statusDot(status) {
 // ─── Single pod chip ──────────────────────────────────────────────────────────
 const PodChip = ({ pod, isHighlighted }) => {
   const isSimulation = pod.name?.includes('cpu-stress') || pod.name?.includes('mem-stress');
-  const isOOM = pod.status?.toLowerCase() === 'oomkilled';
+  const statusForDisplay = (pod.actualStatus || pod.status)?.toLowerCase();
+  const isOOM = statusForDisplay === 'oomkilled';
+  const restartCount = pod.restartCount ?? 0;
 
   return (
     <div
-      title={`${pod.name}\nStatus: ${pod.status}\nNode: ${pod.nodeName || 'unscheduled'}`}
+      title={`${pod.name}\nStatus: ${pod.status}${pod.actualStatus && pod.actualStatus !== pod.status ? ` (${pod.actualStatus})` : ''}\nNode: ${pod.nodeName || 'unscheduled'}${restartCount > 0 ? `\nRestarts: ${restartCount}` : ''}`}
       className={`
         flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-mono
         transition-all duration-300
@@ -78,10 +80,15 @@ const PodChip = ({ pod, isHighlighted }) => {
         ${isHighlighted ? 'ring-2 ring-blue-500 ring-offset-1 scale-105' : ''}
       `}
     >
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(pod.status)}`} />
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(statusForDisplay || pod.status)}`} />
       <span className="truncate max-w-[120px]">
         {shortPodName(pod.name)}
       </span>
+      {restartCount > 0 && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 font-semibold tabular-nums flex-shrink-0" title={`${restartCount} restart(s)`}>
+          ↺{restartCount}
+        </span>
+      )}
       {isSimulation && (
         <span className="text-[9px] font-bold uppercase tracking-wider opacity-70 flex-shrink-0">
           sim

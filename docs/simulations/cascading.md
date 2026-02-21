@@ -4,17 +4,17 @@ Both backend replicas die simultaneously. The Service has zero endpoints. Reques
 
 **Before clicking**: run this in a terminal:
 ```bash
-kubectl get endpoints -n kubelab backend-service -w
+kubectl get endpoints -n kubelab backend -w
 ```
 
 ## What You'll See
 
 ```
 NAME             ENDPOINTS                         AGE
-backend-service  10.1.x.x:3000,10.1.y.y:3000     5m   ← 2 pods serving
-backend-service  <none>                            5m   ← both dead, real downtime
-backend-service  10.1.a.a:3000                    5m   ← first replacement ready
-backend-service  10.1.a.a:3000,10.1.b.b:3000     5m   ← fully recovered
+backend  10.1.x.x:3000,10.1.y.y:3000     5m   ← 2 pods serving
+backend  <none>                            5m   ← both dead, real downtime
+backend  10.1.a.a:3000                    5m   ← first replacement ready
+backend  10.1.a.a:3000,10.1.b.b:3000     5m   ← fully recovered
 ```
 
 ## What Happened

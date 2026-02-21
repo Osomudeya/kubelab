@@ -48,7 +48,7 @@ jobs:
       - name: Check for hardcoded secrets
         run: |
           # Check for common secret patterns (excluding known safe values)
-          if grep -r "password.*=.*['\"].*[a-zA-Z0-9]{8,}" --include="*.yaml" --include="*.yml" --include="*.js" --include="*.jsx" k8s/ backend/ frontend/ | grep -v "kubelab-secure-password-123" | grep -v "admin/admin" | grep -v "postgres-secret"; then
+          if grep -r "password.*=.*['\"].*[a-zA-Z0-9]{8,}" --include="*.yaml" --include="*.yml" --include="*.js" --include="*.jsx" k8s/ backend/ frontend/ | grep -v "kubelab-secure-password-123" | grep -v "kubelab-grafana-2026" | grep -v "postgres-secret"; then
             echo "⚠️  Potential hardcoded secrets found. Review the output above."
             exit 1
           fi

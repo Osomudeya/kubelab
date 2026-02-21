@@ -1,24 +1,12 @@
 /**
  * MetricsSummary — Observability placeholder
  *
+ * Shown contextually inside CPU Stress and Memory Stress sim cards (see SimulationPanel).
  * Real metrics come from Prometheus via Grafana.
- * Until the CPU/Memory stress simulations run and you check Grafana,
- * this card explains what Prometheus captures and where to find it.
- *
- * Grafana is exposed as NodePort 30300 on every cluster node.
- * We derive the URL from window.location.hostname so it works regardless
- * of whether the user is accessing via localhost or a real node IP.
  */
 
 import { BarChart2, ExternalLink, AlertCircle } from 'lucide-react';
-
-// Grafana NodePort — must match the NodePort in k8s/observability/grafana.yaml
-const GRAFANA_PORT = 30300;
-
-function getGrafanaUrl() {
-  const hostname = window.location.hostname;
-  return `http://${hostname}:${GRAFANA_PORT}`;
-}
+import { getGrafanaUrl } from '../utils/grafana';
 
 const MetricsSummary = ({ isLoading }) => {
   if (isLoading) return null; // Silent during load — doesn't add value
@@ -53,9 +41,7 @@ const MetricsSummary = ({ isLoading }) => {
           <p className="text-xs text-gray-400 mt-2 flex items-start gap-1">
             <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-400" />
             <span>
-              Grafana opens on port 30300. If it doesn&apos;t load, run{' '}
-              <code className="bg-gray-100 px-1 rounded">kubectl get nodes -o wide</code>{' '}
-              and visit <code className="bg-gray-100 px-1 rounded">http://&lt;node-ip&gt;:30300</code>.
+              Using port-forward? Run <code className="bg-gray-100 px-1 rounded">kubectl port-forward -n kubelab svc/grafana 3000:3000</code> then open http://localhost:3000. Using NodePort? Open <code className="bg-gray-100 px-1 rounded">http://&lt;node-ip&gt;:30300</code>.
             </span>
           </p>
         </div>

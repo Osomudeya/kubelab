@@ -8,19 +8,31 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR/.."
 
-# Get Docker Hub username
-DOCKERHUB_USERNAME=${1:-${DOCKERHUB_USER:-""}}
-VERSION=${2:-"latest"}
+# Parse args: [username] [version] or -y/--yes to skip push prompt
+DOCKERHUB_USERNAME=""
+VERSION="latest"
+AUTO_PUSH=""
+for arg in "$@"; do
+    if [ "$arg" = "-y" ] || [ "$arg" = "--yes" ]; then
+        AUTO_PUSH=1
+    elif [ -z "$DOCKERHUB_USERNAME" ]; then
+        DOCKERHUB_USERNAME="$arg"
+    elif [ "$VERSION" = "latest" ] && [ "$arg" != "latest" ]; then
+        VERSION="$arg"
+    fi
+done
+DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME:-${DOCKERHUB_USER:-""}}
 
 if [ -z "$DOCKERHUB_USERNAME" ]; then
     echo "❌ Docker Hub username required"
     echo ""
     echo "Usage:"
-    echo "  ./scripts/build-and-push.sh <dockerhub-username> [version]"
+    echo "  ./scripts/build-and-push.sh <dockerhub-username> [version] [-y]"
+    echo "  -y / --yes   Push without prompting (use when terminal has no TTY or script runs non-interactively)"
     echo ""
     echo "Or set environment variable:"
     echo "  export DOCKERHUB_USER=your-username"
-    echo "  ./scripts/build-and-push.sh"
+    echo "  ./scripts/build-and-push.sh -y"
     echo ""
     exit 1
 fi
@@ -80,19 +92,21 @@ echo ""
 echo "📊 Image Sizes:"
 docker images | grep "$DOCKERHUB_USERNAME/kubelab" | head -2
 
-# Ask for confirmation before pushing
-echo ""
-read -p "Push images to Docker Hub? (y/N): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Build complete. Images are ready but not pushed."
+# Confirm push unless -y/--yes
+if [ -z "$AUTO_PUSH" ]; then
     echo ""
-    echo "To push manually:"
-    echo "  docker push $DOCKERHUB_USERNAME/kubelab-backend:$VERSION"
-    echo "  docker push $DOCKERHUB_USERNAME/kubelab-backend:latest"
-    echo "  docker push $DOCKERHUB_USERNAME/kubelab-frontend:$VERSION"
-    echo "  docker push $DOCKERHUB_USERNAME/kubelab-frontend:latest"
-    exit 0
+    read -p "Push images to Docker Hub? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Build complete. Images are ready but not pushed."
+        echo ""
+        echo "To push manually:"
+        echo "  docker push $DOCKERHUB_USERNAME/kubelab-backend:$VERSION"
+        echo "  docker push $DOCKERHUB_USERNAME/kubelab-backend:latest"
+        echo "  docker push $DOCKERHUB_USERNAME/kubelab-frontend:$VERSION"
+        echo "  docker push $DOCKERHUB_USERNAME/kubelab-frontend:latest"
+        exit 0
+    fi
 fi
 
 # Push backend

@@ -209,7 +209,9 @@ const EventsFeed = () => {
                     </span>
                   )}
               {evt.count > 1 && (
-                    <span className="text-gray-600">×{evt.count}</span>
+                    <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300 text-xs font-semibold tabular-nums" title={`${evt.count} occurrences`}>
+                      ×{evt.count}
+                    </span>
                   )}
                 </div>
               </div>

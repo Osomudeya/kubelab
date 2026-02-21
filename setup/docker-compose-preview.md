@@ -1,12 +1,12 @@
 # KubeLab Setup
 
-Two paths. Pick one.
+Two paths. Pick one. **Multipass and kubectl work on macOS, Linux, and Windows** — use the [Multipass](https://multipass.run) and [kubectl](https://kubernetes.io/docs/tasks/tools/) install guides for your OS.
 
 ---
 
-## Option A — Docker Compose (5 min, local only)
+## Option A — Docker Compose (5 min, UI preview only)
 
-Runs the UI and backend locally. The backend returns **mock data** — no real cluster, so failure simulations won't trigger actual Kubernetes events. Good for exploring the interface, nothing more.
+Runs the UI and backend locally. The backend returns **mock data** — no real cluster, so failure simulations won't trigger actual Kubernetes events. Use this to explore the interface; for real simulations, use Option B or the [full setup guide](k8s-cluster-setup.md).
 
 ```bash
 docker-compose up -d
@@ -16,6 +16,8 @@ docker-compose up -d
 |---------|-----|
 | Frontend | http://localhost:8080 |
 | Backend | http://localhost:3000 |
+
+**Next:** Open http://localhost:8080. You'll see the UI in mock mode (amber banner). To run real simulations, follow [Option B](#option-b--real-3-node-cluster-30-min-full-experience) below or the [full setup guide](k8s-cluster-setup.md).
 
 Full image build docs: [docker-setup.md](docker-setup.md)
 
@@ -59,7 +61,7 @@ microk8s join <token-from-control-plane> --worker
 
 Run `microk8s add-node` again before joining worker 2.
 
-### 4. Configure kubectl on your Mac
+### 4. Configure kubectl on your host (macOS/Linux/Windows)
 
 ```bash
 multipass exec microk8s-vm -- microk8s config > ~/.kube/config-microk8s
@@ -68,6 +70,8 @@ multipass exec microk8s-vm -- microk8s config > ~/.kube/config-microk8s
 KUBECONFIG=~/.kube/config:~/.kube/config-microk8s kubectl config view --flatten > ~/.kube/config
 kubectl config use-context microk8s
 ```
+
+On **Windows** (PowerShell), use `$env:USERPROFILE\.kube\config-microk8s` instead of `~/.kube/config-microk8s` and merge with your existing config path.
 
 Verify: `kubectl get nodes` → should show 3 nodes `Ready`.
 
@@ -89,45 +93,29 @@ The manifests already reference `veeno/kubelab-backend` and `veeno/kubelab-front
 
 > To use your own passwords: `echo -n "yourpassword" | base64` then edit `k8s/secrets.yaml`. It's gitignored — safe to edit locally.
 
-### 7. Deploy everything
+### 7. Deploy
 
 ```bash
 ./scripts/deploy-all.sh
 ```
 
-Watch it come up: `watch kubectl get pods -n kubelab`  
-Done when all 11 pods show `Running`.
-
-Run smoke tests: `./scripts/smoke-test.sh`
+Watch pods: `kubectl get pods -n kubelab -w` until all 11 are Running. The script applies namespace, secrets, RBAC, base app, and observability in order. Learning happens in the simulations, not in the apply step — use the script and move on.
 
 ---
 
-## Accessing Services
+## View the UI and open Grafana + Prometheus (side by side)
 
-NodePort works from **any of the 3 node IPs**:
+Run each port-forward in its own terminal, then open the URLs. **Use the KubeLab UI and Grafana together:** trigger simulations in the UI and watch Grafana at the same time so you see pod restarts, memory, and errors live.
 
-```bash
-NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-echo "Frontend:   http://$NODE_IP:30080"
-echo "Grafana:    http://$NODE_IP:30300"
-```
+| Service | Command | URL |
+|---------|---------|-----|
+| **Frontend** | `kubectl port-forward -n kubelab svc/frontend 8080:80` | http://localhost:8080 |
+| **Grafana** | `kubectl port-forward -n kubelab svc/grafana 3000:3000` | http://localhost:3000 |
+| **Prometheus** | `kubectl port-forward -n kubelab svc/prometheus 9090:9090` | http://localhost:9090 |
 
-For Prometheus (ClusterIP only — no NodePort):
+**Workflow:** Open the frontend (KubeLab UI) and Grafana in separate tabs or windows. Run a simulation (e.g. Kill Pod, Memory Stress) in the UI; watch the Cluster Health dashboard in Grafana. Grafana login: `admin` / `kubelab-grafana-2026`. Dashboard and Prometheus data source are auto-provisioned. Prometheus is optional for ad-hoc PromQL.
 
-```bash
-kubectl port-forward -n kubelab svc/prometheus 9090:9090
-# → http://localhost:9090
-```
-
----
-
-## Grafana First-Time Setup
-
-1. Open Grafana → login `admin` / `kubelab-grafana-2026`
-
-The Prometheus data source and Cluster Health dashboard are **auto-provisioned** — they appear on first login. No manual setup needed.
-
-You'll see live panels for pod status, node CPU/memory, restart counts, and simulation events.
+*Alternative (NodePort):* Frontend `http://<node-ip>:30080`, Grafana `http://<node-ip>:30300`. Prometheus has no NodePort — use port-forward.
 
 ---
 
@@ -135,9 +123,7 @@ You'll see live panels for pod status, node CPU/memory, restart counts, and simu
 
 **Join tokens expire in 60 seconds.** Run `microk8s add-node` immediately before each worker joins. If it fails with `connection refused`, generate a new token.
 
-**Grafana opens on port 30300, not 3000.** The UI's "Open Grafana" button auto-detects your hostname. If it fails, use `http://<node-ip>:30300`.
-
-**Prometheus is ClusterIP** — no NodePort. Always port-forward to reach it from your Mac.
+**View Grafana/Prometheus:** use port-forward (see table above) → http://localhost:3000 and http://localhost:9090. NodePort alternative for Grafana only: `http://<node-ip>:30300`.
 
 **`kubectl top` won't work** until `metrics-server` addon is enabled (step 2 above handles this).
 
@@ -160,7 +146,7 @@ microk8s status --wait-ready
 microk8s enable dns storage metrics-server
 ```
 
-Configure kubectl on your Mac:
+Configure kubectl on your host:
 
 ```bash
 multipass exec kubelab-solo -- microk8s config > ~/.kube/config-microk8s
@@ -194,5 +180,5 @@ No local RAM required. Full 7-simulation experience. Perfect if you don't have 1
 
 ---
 
-Full K8s setup details and troubleshooting: [k8s-setup.md](k8s-setup.md)
+Full K8s setup details and troubleshooting: [k8s-cluster-setup.md](k8s-cluster-setup.md)
 

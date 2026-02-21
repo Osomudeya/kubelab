@@ -14,6 +14,10 @@ Build and push KubeLab images to Docker Hub in 3 steps.
 # 1. Build and push both images
 ./scripts/build-and-push.sh <your-dockerhub-username>
 
+# When prompted "Push images to Docker Hub? (y/N):" type y and Enter.
+# If the script seems stuck, it is waiting for that input. Use -y to skip the prompt:
+./scripts/build-and-push.sh <your-dockerhub-username> latest -y
+
 # 2. Update Kubernetes manifests
 ./scripts/update-manifests.sh <your-dockerhub-username>
 
@@ -80,6 +84,11 @@ docker-compose down
 **Note**: When running in Docker Compose, the backend will return mock data since Kubernetes API is not available. This is expected behavior. Deploy to Kubernetes to see real cluster data.
 
 ## Troubleshooting
+
+**Build-and-push script seems stuck after "Building frontend image..."?**
+- The script waits for you to type `y` and Enter at "Push images to Docker Hub? (y/N):". In some terminals (IDE run button, no TTY) that prompt never appears and the script just hangs.
+- **Fix:** Run with `-y` to push without prompting: `./scripts/build-and-push.sh <username> latest -y`
+- Or run in a normal terminal and type `y` when asked.
 
 **Build fails with "npm ci" error?**
 - Dockerfiles handle missing `package-lock.json` automatically. If issues persist, run `npm install` in backend/ and frontend/ directories first.

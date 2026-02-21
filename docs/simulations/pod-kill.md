@@ -38,7 +38,7 @@ kubectl get events -n kubelab --sort-by=.lastTimestamp | tail -10
 # Killing → SuccessfulCreate → Scheduled → Pulled → Started
 
 # Confirm new pod is serving traffic
-kubectl get endpoints -n kubelab backend-service
+kubectl get endpoints -n kubelab backend
 ```
 
 ## Production Insight

@@ -49,6 +49,7 @@ const ClusterOverview = ({ data, isLoading }) => {
   const runningPods = pods?.filter(p => p.status === 'Running').length || 0;
   const failedPods  = pods?.filter(p => ['Failed', 'CrashLoopBackOff'].includes(p.status)).length || 0;
   const pendingPods = pods?.filter(p => p.status === 'Pending').length || 0;
+  const hasNoData = (summary?.totalPods ?? 0) === 0 && (summary?.totalNodes ?? 0) === 0;
 
   const stats = [
     { label: 'Total Pods',   value: summary?.totalPods || 0, icon: Activity,     color: 'text-blue-600',   bgColor: 'bg-blue-50' },
@@ -67,7 +68,12 @@ const ClusterOverview = ({ data, isLoading }) => {
           </span>
         )}
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {hasNoData && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+          No cluster data. These cards are live stats from the API. If you use port-forward, ensure the backend is reachable (see README). Mock mode shows zeros.
+        </p>
+      )}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" role="region" aria-label="Cluster stats (read-only)">
         {stats.map(s => (
           <StatCard key={s.label} label={s.label} value={s.value} Icon={s.icon} color={s.color} bgColor={s.bgColor} />
         ))}

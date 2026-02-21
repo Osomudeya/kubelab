@@ -10,7 +10,7 @@ spec:
     - Ingress
     - Egress
 ---
-# Allow frontend to communicate with backend
+# Allow frontend and Prometheus to communicate with backend
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -27,6 +27,9 @@ spec:
         - podSelector:
             matchLabels:
               app: frontend
+        - podSelector:
+            matchLabels:
+              app: prometheus
       ports:
         - protocol: TCP
           port: 3000
@@ -158,6 +161,92 @@ spec:
           port: 8080
         - protocol: TCP
           port: 3000
+        - protocol: TCP
+          port: 10250
+---
+# Allow Grafana to query Prometheus (dashboard datasource)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-to-prometheus
+  namespace: kubelab
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: grafana
+      ports:
+        - protocol: TCP
+          port: 9090
+---
+# Allow Grafana egress to Prometheus
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-egress-to-prometheus
+  namespace: kubelab
+spec:
+  podSelector:
+    matchLabels:
+      app: grafana
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+---
+# Allow Prometheus to scrape node-exporter
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-to-node-exporter
+  namespace: kubelab
+spec:
+  podSelector:
+    matchLabels:
+      app: node-exporter
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 9100
+---
+# Allow Prometheus to scrape kube-state-metrics
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-to-kube-state-metrics
+  namespace: kubelab
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080
 ---
 # Allow kube-state-metrics egress to Kubernetes API
 apiVersion: networking.k8s.io/v1

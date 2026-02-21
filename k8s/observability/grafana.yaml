@@ -57,7 +57,7 @@ data:
       "schemaVersion": 38,
       "version": 1,
       "refresh": "10s",
-      "time": { "from": "now-1h", "to": "now" },
+      "time": { "from": "now-15m", "to": "now" },
       "panels": [
         {
           "id": 1, "title": "Nodes Ready", "type": "stat",
@@ -74,11 +74,18 @@ data:
           "options": {"colorMode": "value", "graphMode": "none"}
         },
         {
-          "id": 3, "title": "Pod Restart Count (Last Hour)", "type": "stat",
+          "id": 3, "title": "Pod Restart Count", "type": "stat",
           "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
-          "targets": [{"expr": "sum(increase(kube_pod_container_status_restarts_total[1h]))", "refId": "A"}],
+          "targets": [{"expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"kubelab\"}[$__range]))", "refId": "A"}],
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]}, "unit": "short"}},
           "options": {"colorMode": "value", "graphMode": "area"}
+        },
+        {
+          "id": 13, "title": "Nodes Cordoned", "type": "stat",
+          "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+          "targets": [{"expr": "sum(kube_node_spec_unschedulable)", "refId": "A"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": 0, "color": "green"}, {"value": 1, "color": "yellow"}]}, "unit": "short"}},
+          "options": {"colorMode": "value", "graphMode": "none"}
         },
         {
           "id": 4, "title": "Node CPU Usage Over Time", "type": "timeseries",
@@ -97,7 +104,7 @@ data:
         {
           "id": 6, "title": "Pod Restart Count Per Pod", "type": "bargauge",
           "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
-          "targets": [{"expr": "increase(kube_pod_container_status_restarts_total[1h])", "refId": "A", "legendFormat": "{{pod}}"}],
+          "targets": [{"expr": "increase(kube_pod_container_status_restarts_total{namespace=\"kubelab\"}[$__range])", "refId": "A", "legendFormat": "{{pod}}"}],
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "red"}]}, "unit": "short"}},
           "options": {"displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true}
         },
@@ -120,16 +127,30 @@ data:
           "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}}
         },
         {
-          "id": 9, "title": "Simulation Events (Last Hour)", "type": "stat",
+          "id": 9, "title": "Simulation Events", "type": "stat",
           "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
-          "targets": [{"expr": "sum(increase(simulation_events_total[1h]))", "refId": "A"}],
+          "targets": [{"expr": "sum(increase(simulation_events_total{job=\"kubelab-backend\"}[$__range]))", "refId": "A"}],
           "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "yellow"}, {"value": 5, "color": "orange"}]}, "unit": "short"}},
           "options": {"colorMode": "value", "graphMode": "area"}
         },
         {
+          "id": 11, "title": "Backend pod CPU (millicores)", "type": "timeseries",
+          "gridPos": {"x": 0, "y": 28, "w": 12, "h": 8},
+          "targets": [{"expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"kubelab\", pod=~\"backend-.*\"}[5m])) by (pod) * 1000", "refId": "A", "legendFormat": "{{pod}}"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}, "unit": "short"}, "overrides": [{"matcher": {"id": "byName", "options": ".*"}, "properties": [{"id": "unit", "value": "short"}]}]},
+          "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}}
+        },
+        {
+          "id": 12, "title": "Backend container memory (Mi)", "type": "timeseries",
+          "gridPos": {"x": 12, "y": 28, "w": 12, "h": 8},
+          "targets": [{"expr": "sum(container_memory_usage_bytes{namespace=\"kubelab\", pod=~\"backend-.*\"}) by (pod) / 1024 / 1024", "refId": "A", "legendFormat": "{{pod}}"}],
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 200, "color": "yellow"}, {"value": 256, "color": "red"}]}, "unit": "short"}},
+          "options": {"tooltip": {"mode": "multi"}, "legend": {"displayMode": "list", "placement": "bottom"}}
+        },
+        {
           "id": 10, "title": "Simulation Events by Type", "type": "bargauge",
-          "gridPos": {"x": 0, "y": 28, "w": 24, "h": 8},
-          "targets": [{"expr": "sum by (type) (increase(simulation_events_total[1h]))", "refId": "A", "legendFormat": "{{type}}"}],
+          "gridPos": {"x": 0, "y": 36, "w": 24, "h": 8},
+          "targets": [{"expr": "sum by (type) (increase(simulation_events_total{job=\"kubelab-backend\"}[$__range]))", "refId": "A", "legendFormat": "{{type}}"}],
           "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
           "options": {"displayMode": "gradient", "orientation": "horizontal"}
         }

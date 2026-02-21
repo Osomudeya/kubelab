@@ -1,10 +1,12 @@
 # Failure Scenarios
 
-Run in this order — each one teaches something different.
+Run in this order — each one teaches something different. **Want more detail after running one in the UI?** Use the per-scenario guides: [Kill Pod](simulations/pod-kill.md) · [Drain Node](simulations/node-drain.md) · [OOMKill](simulations/oomkill.md) · [DB Failure](simulations/database.md) · [CPU Stress](simulations/cpu-stress.md) · [Cascading](simulations/cascading.md) · [Readiness](simulations/readiness.md).
 
 ---
 
 ## 1. Kill Random Pod
+
+**Detailed guide:** [pod-kill.md](simulations/pod-kill.md)
 
 Deletes a backend pod. Kubernetes recreates it within 10 seconds.
 
@@ -26,6 +28,8 @@ kubectl get events -n kubelab --sort-by=.lastTimestamp | tail -8
 ---
 
 ## 2. Drain Worker Node
+
+**Detailed guide:** [node-drain.md](simulations/node-drain.md)
 
 Marks one node unschedulable, evicts all its pods to other nodes.
 
@@ -50,6 +54,8 @@ kubectl get pods -n kubelab -o wide | grep backend
 ---
 
 ## 3. Memory Stress (OOMKill)
+
+**Detailed guide:** [oomkill.md](simulations/oomkill.md)
 
 Allocates memory inside a backend pod until it crosses the 256Mi limit. Linux kernel sends SIGKILL. Pod restarts.
 
@@ -81,6 +87,8 @@ Exit 137 = 128 + 9 (SIGKILL). The Linux kernel sent it — not Kubernetes. Kuber
 
 ## 4. Database Failure
 
+**Detailed guide:** [database.md](simulations/database.md)
+
 Scales the Postgres StatefulSet to 0. Pod terminates. PVC and all data survive.
 
 ```bash
@@ -105,6 +113,8 @@ After restoring: same pod name (`postgres-0`), same PVC reattaches, zero data lo
 
 ## 5. CPU Stress
 
+**Detailed guide:** [cpu-stress.md](simulations/cpu-stress.md)
+
 Runs a stress process inside a backend pod for 60 seconds. Pod hits its 200m CPU limit and gets throttled.
 
 ```bash
@@ -125,10 +135,12 @@ High latency + normal-looking CPU metrics + no restarts = CPU limits set too low
 
 ## 6. Cascading Pod Failure
 
+**Detailed guide:** [cascading.md](simulations/cascading.md)
+
 Kills ALL backend pods at once. With `replicas: 2`, killing one leaves a healthy replica. Killing both creates **real downtime** — the Service has zero endpoints for 5–15 seconds.
 
 ```bash
-kubectl get endpoints -n kubelab backend-service -w
+kubectl get endpoints -n kubelab backend -w
 # Watch: ENDPOINTS → <none> → two new IPs
 ```
 
@@ -145,6 +157,8 @@ kubectl get events -n kubelab --sort-by=.lastTimestamp | tail -10
 
 ## 7. Readiness Probe Failure
 
+**Detailed guide:** [readiness.md](simulations/readiness.md)
+
 Makes one backend pod fail its readiness probe for 120 seconds. The pod stays `Running` — no restart, no crash. But Kubernetes removes it from Service endpoints. All traffic goes to the other replica.
 
 ```bash
@@ -153,7 +167,7 @@ kubectl get pods -n kubelab
 ```
 
 ```bash
-kubectl get endpoints -n kubelab backend-service
+kubectl get endpoints -n kubelab backend
 # Only 1 IP — this pod's IP disappeared
 ```
 
@@ -178,5 +192,5 @@ kubectl describe pod -n kubelab <failing-pod> | grep -A 5 "Conditions:"
 | OOMKill | `kubectl describe pod ... \| grep "Last State" -A 8` | Exit Code: 137 |
 | DB Failure | `kubectl get pvc -n kubelab` | PVC stays Bound |
 | CPU Stress | `kubectl top pods -n kubelab` | One pod pegged at limit |
-| Cascading | `kubectl get endpoints -n kubelab backend-service -w` | ENDPOINTS → `<none>` |
+| Cascading | `kubectl get endpoints -n kubelab backend -w` | ENDPOINTS → `<none>` |
 | Readiness | `kubectl describe pod ... \| grep "Ready:"` | Ready: False, ContainersReady: True |

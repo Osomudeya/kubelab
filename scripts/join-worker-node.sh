@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Join Worker Node to MicroK8s Cluster
-# Run this script on each worker node after getting the join token from the control plane
+# Optional shortcut. First time? Follow the join steps in setup/k8s-cluster-setup.md (Part 4).
+# Run this on each worker VM after getting the join token from the control plane.
 
 set -e
 
