@@ -11,7 +11,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Trash2, ServerOff, Cpu, HardDrive, Database, Loader2,
-  RotateCcw, CheckCircle2, ChevronDown, ChevronUp,
+  CheckCircle2, ChevronDown, ChevronUp,
   ArrowRight, Eye, X, Terminal, Copy, Check,
 } from 'lucide-react';
 import api from '../services/api';
@@ -26,6 +26,7 @@ const SIM_META = {
     icon: Trash2, accent: 'border-red-400 bg-red-50',
     btnColor: 'bg-red-600 hover:bg-red-700',
     objective: 'Self-healing and ReplicaSets',
+    without: 'Without Kubernetes: the crashed process stays down until someone manually SSHs in and restarts it — usually discovered by an alert at 3am.',
     description: 'Deletes a running backend pod via the Kubernetes API. The Deployment controller immediately notices and creates a replacement.',
     watch: ['Events Feed: Killing → Scheduled → Started', 'Cluster Map: pod chip flashes, then reappears'],
     learn: {
@@ -39,6 +40,7 @@ const SIM_META = {
     icon: ServerOff, accent: 'border-orange-400 bg-orange-50',
     btnColor: 'bg-orange-600 hover:bg-orange-700',
     objective: 'Node maintenance and pod eviction',
+    without: 'Without Kubernetes: you SSH to each server, manually stop every process, update load balancer configs, then coordinate with every team whose app ran on that node.',
     description: 'Marks a node as unschedulable (cordon) then evicts all non-DaemonSet pods. The scheduler immediately places them on healthy nodes.',
     watch: ['Cluster Map: node gets CORDONED banner, pods move to other nodes', 'Events Feed: Evicted entries appear for each pod'],
     learn: {
@@ -52,6 +54,7 @@ const SIM_META = {
     icon: Cpu, accent: 'border-yellow-400 bg-yellow-50',
     btnColor: 'bg-yellow-600 hover:bg-yellow-700',
     objective: 'CPU limits and throttling on your real backend pod',
+    without: 'Without Kubernetes: a runaway process consumes all CPU on the server, slowing down every other process. No per-app limits exist.',
     description: 'Burns CPU inside a real backend pod for 60 seconds. That pod\'s CPU limit is 200m — the Linux CFS scheduler will throttle it hard. The pod stays alive but slows down. This is exactly what happens to your app in production when CPU is constrained.',
     watch: ['kubectl top pods: one backend pod pegged at ~200m (the limit)', 'The OTHER backend pod keeps serving requests normally — this is HA in action'],
     learn: {
@@ -65,6 +68,7 @@ const SIM_META = {
     icon: HardDrive, accent: 'border-red-400 bg-red-50',
     btnColor: 'bg-red-600 hover:bg-red-700',
     objective: 'OOMKill on your real backend pod',
+    without: 'Without Kubernetes: a memory-leaking process eventually consumes the server\'s RAM, triggering the OS OOM killer which may kill random unrelated processes to free memory.',
     description: 'Allocates memory inside a real backend pod in 50 MB chunks until it crosses the 256 Mi limit. The Linux kernel sends SIGKILL (exit code 137) with no warning. The pod restarts. The other backend replica keeps serving traffic.',
     watch: ['kubectl get pods -w: one backend pod STATUS → OOMKilled → Running (restarted)', 'kubectl describe pod: "Last State: OOMKilled, Exit Code: 137"'],
     learn: {
@@ -78,6 +82,7 @@ const SIM_META = {
     icon: Database, accent: 'border-red-500 bg-red-50',
     btnColor: 'bg-red-700 hover:bg-red-800',
     objective: 'Stateful workloads and data persistence',
+    without: 'Without Kubernetes: the database runs directly in a container with no PVC — if the container dies, every row of data inside it is gone. Recovery means a restore from backup.',
     description: 'Scales the Postgres StatefulSet to 0. The database pod terminates but the PersistentVolumeClaim (and all data) is preserved.',
     watch: ['Cluster Map: postgres-0 disappears from its node', 'Events Feed: Killing for postgres-0'],
     learn: {
@@ -91,6 +96,7 @@ const SIM_META = {
     icon: Trash2, accent: 'border-rose-500 bg-rose-50',
     btnColor: 'bg-rose-700 hover:bg-rose-800',
     objective: 'Downtime despite replicas — why replicas: 2 is not enough',
+    without: 'Without Kubernetes: all instances are down simultaneously — someone has to SSH into each server and restart manually. Minutes to hours of downtime.',
     description: 'Deletes BOTH backend pods simultaneously. With replicas: 2, killing one leaves a healthy replica serving traffic. Killing both causes 5–15 seconds of real downtime — zero endpoints, requests fail. Kubernetes creates replacements immediately, but there is a gap.',
     watch: ['kubectl get pods -n kubelab -w: both pods Terminating at the same time', 'kubectl get endpoints -n kubelab backend-service: ENDPOINTS goes empty, then refills'],
     learn: {
@@ -104,6 +110,7 @@ const SIM_META = {
     icon: Eye, accent: 'border-purple-400 bg-purple-50',
     btnColor: 'bg-purple-600 hover:bg-purple-700',
     objective: 'Silent degradation — Running pod receiving zero traffic',
+    without: 'Without Kubernetes: there is no built-in mechanism to tell the load balancer "this server is alive but not ready" — traffic keeps hitting it, half your requests fail, dashboards show the server as healthy.',
     description: 'Makes one backend pod fail its readiness probe for 120 seconds. The pod stays Running — kubectl get pods shows Running, liveness passes, no restarts. But Kubernetes removes it from Service endpoints. The other pod handles all traffic. This is the most misunderstood Kubernetes behavior.',
     watch: ['kubectl get pods -n kubelab: STATUS is Running (pod alive, not crashing)', 'kubectl get endpoints -n kubelab backend-service: only 1 IP (this pod removed)', 'kubectl describe pod <this-pod>: Ready=False but ContainersReady=True'],
     learn: {
@@ -192,6 +199,40 @@ const QUIZ = {
     ],
     correct: 1,
     explanation: 'Liveness and readiness are separate. Liveness failure → restart. Readiness failure → removed from endpoints, zero traffic, no restart. The pod stayed Running and passed liveness, but failed readiness. This is intentional: it\'s how you gracefully drain a pod without killing it.',
+  },
+};
+
+// ─── Post-sim observation prompts — "what did you see?" ──────────────────────
+// Shown at the top of WhatYouLearned BEFORE the explanation.
+// Forces the reader to check their terminal and form their own answer first.
+const OBSERVE = {
+  'kill-pod': {
+    prompt: 'Before reading the explanation — what changed about the pod\'s name in your terminal?',
+    reveal: 'The suffix is completely different. "backend-abc123" is gone forever — Kubernetes created an entirely new object. This is why the RESTARTS counter is 0 on the replacement: it has never crashed. Restarting and replacing are different things.',
+  },
+  'drain-node': {
+    prompt: 'Run: kubectl get pods -n kubelab -o wide — which node are the backend pods on now?',
+    reveal: 'Both should be on nodes other than the one you drained. The drained node shows SchedulingDisabled in kubectl get nodes. New pods only land there again after you uncordon it — until then it\'s invisible to the scheduler.',
+  },
+  'cpu-stress': {
+    prompt: 'Run: kubectl top pods -n kubelab — what CPU value do you see for the stressed backend pod?',
+    reveal: '~200m — exactly the CPU limit. The pod was requesting 2000m+ but the kernel paused it 90% of the time. kubectl top shows "what was allowed through the throttle", not "what was requested". That\'s why high throttle is invisible without Prometheus metrics.',
+  },
+  'memory-stress': {
+    prompt: 'Run: kubectl describe pod -n kubelab -l app=backend | grep -A 3 "Last State:" — what do you see?',
+    reveal: 'Reason: OOMKilled, Exit Code: 137. Exit 137 = 128 + signal 9 (SIGKILL). The Linux kernel sent SIGKILL directly — Kubernetes only observed the exit code afterward. There is no warning, no graceful shutdown for an OOMKill.',
+  },
+  'db-failure': {
+    prompt: 'Run: kubectl get pvc -n kubelab — what is the STATUS of postgres-data-postgres-0?',
+    reveal: 'Bound. It was Bound the entire time, even with zero pods running. The volume exists as an independent Kubernetes object that outlives pods. Data lives on the PVC, not in the container — this is the entire purpose of PersistentVolumeClaims.',
+  },
+  'kill-all-pods': {
+    prompt: 'Run: kubectl get endpoints -n kubelab backend-service — how many IPs are listed? Are they the same IPs as before?',
+    reveal: 'Two new IPs — different from the originals. The old pods are gone; these are fresh replacements that passed their readiness probes. During the gap when ENDPOINTS showed <none>, every request to backend-service returned "connection refused".',
+  },
+  'fail-readiness': {
+    prompt: 'Run: kubectl describe pod -n kubelab -l app=backend | grep -E "Ready:|ContainersReady:" — what combination do you see?',
+    reveal: 'One pod shows Ready: False with ContainersReady: True. The container is running. The pod is not ready for traffic. These are two independent conditions — liveness (is the process alive?) and readiness (is it ready for requests?) are separate probes with entirely different consequences.',
   },
 };
 
@@ -443,7 +484,8 @@ const CopyBtn = ({ text }) => {
 // ─── TerminalGuide ────────────────────────────────────────────────────────────
 // Shown inside every expanded sim card, ABOVE the action button.
 // Teaches the 3-step rhythm: watch → trigger → verify.
-const TerminalGuide = ({ simId }) => {
+// `ready` / `onReady` gate the Run button — reader confirms terminal is open.
+const TerminalGuide = ({ simId, ready, onReady }) => {
   const t = TERMINAL_CMDS[simId];
   if (!t) return null;
 
@@ -495,11 +537,21 @@ const TerminalGuide = ({ simId }) => {
           </div>
         )}
 
-        {/* Divider with instruction */}
-        <div className="px-3 py-2 bg-gray-900/50 flex items-center gap-2">
-          <div className="flex-1 h-px bg-gray-700" />
-          <span className="text-xs text-gray-400 font-mono flex-shrink-0">then click the button below ↓</span>
-          <div className="flex-1 h-px bg-gray-700" />
+        {/* Checkbox gate — reader confirms terminal is streaming before Run unlocks */}
+        <div className="px-3 py-3 bg-gray-900/70">
+          <label className="flex items-start gap-3 cursor-pointer group select-none">
+            <input
+              type="checkbox"
+              checked={ready || false}
+              onChange={(e) => onReady?.(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded accent-green-500 flex-shrink-0 cursor-pointer"
+            />
+            <span className={`text-xs leading-relaxed transition-colors ${ready ? 'text-green-400 font-medium' : 'text-gray-400 group-hover:text-gray-300'}`}>
+              My terminal is open and streaming — I can see live output.
+              {!ready && <span className="ml-1 text-yellow-500 font-semibold">(check this to unlock the Run button)</span>}
+              {ready && <span className="ml-1 text-green-500">✓ Run button unlocked</span>}
+            </span>
+          </label>
         </div>
 
         {/* Step 3 — verify after */}
@@ -534,10 +586,12 @@ const WatchCallout = ({ items }) => (
 // ─── WhatYouLearned ───────────────────────────────────────────────────────────
 const WhatYouLearned = ({ simId, meta, onNext, onDismiss }) => {
   const quiz    = QUIZ[simId];
+  const observe = OBSERVE[simId];
   const variant = VARIANTS[simId];
   const breakers = BREAKERS[simId];
 
   const [selected,     setSelected]     = useState(null);
+  const [observeOpen,  setObserveOpen]  = useState(false);
   const [copiedVariant, setCopiedVariant] = useState(false);
   const [breakersOpen, setBreakersOpen] = useState(false);
 
@@ -562,6 +616,26 @@ const WhatYouLearned = ({ simId, meta, onNext, onDismiss }) => {
         <X className="w-3.5 h-3.5" />
       </button>
     </div>
+
+      {/* ── Observation prompt — check terminal before reading explanation ── */}
+      {observe && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+          <p className="text-xs font-bold text-amber-800 mb-1">🔍 Check your terminal first</p>
+          <p className="text-xs text-amber-900 leading-relaxed mb-2">{observe.prompt}</p>
+          <button
+            onClick={() => setObserveOpen(p => !p)}
+            className="flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-900 transition-colors"
+          >
+            {observeOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {observeOpen ? 'Hide answer' : 'Reveal answer'}
+          </button>
+          {observeOpen && (
+            <p className="mt-2 text-xs text-amber-900 leading-relaxed bg-amber-100 rounded px-2 py-1.5">
+              {observe.reveal}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── Core explanation ────────────────────────────────────────────── */}
       <div>
@@ -675,7 +749,7 @@ const WhatYouLearned = ({ simId, meta, onNext, onDismiss }) => {
       )}
         {quiz && !isCorrect && (
           <span className="text-xs text-gray-400 italic">Answer the question above to unlock Next →</span>
-        )}
+      )}
     </div>
   </div>
 );
@@ -775,6 +849,7 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
   const [drainedNode, setDrainedNode]         = useState(null);
   const [dbDown, setDbDown]                   = useState(false);
   const [readinessCountdown, setReadinessCountdown] = useState(0);
+  const [terminalReady, setTerminalReady]     = useState({});
   const [expandedSim, setExpandedSim]     = useState('kill-pod'); // open by default
   const [learnedSim, setLearnedSim]       = useState(null);
   const [completed, setCompleted]         = useState(() => {
@@ -1134,16 +1209,27 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
   };
 
   // ── Per-sim action trigger + button ───────────────────────────────────────
+  const setReady = (simId, val) => setTerminalReady(p => ({ ...p, [simId]: val }));
+
+  const WithoutNote = ({ without: text }) =>
+    text ? (
+      <p className="text-xs text-gray-400 italic mb-2 pl-2 border-l-2 border-gray-300 leading-relaxed">
+        {text}
+      </p>
+    ) : null;
+
   const renderSimBody = (simId) => {
     const meta = SIM_META[simId];
+    const isReady = !!terminalReady[simId];
 
     // Drain node is special — has restore state
     if (simId === 'drain-node') {
       return (
         <>
           <PreflightCheck simId={simId} />
+          <WithoutNote without={meta.without} />
           <p className="text-sm text-gray-600 leading-relaxed mb-3">{meta.description}</p>
-          <TerminalGuide simId={simId} />
+          <TerminalGuide simId={simId} ready={isReady} onReady={(v) => setReady(simId, v)} />
           <WatchCallout items={meta.watch} />
           <div className="flex gap-2 mt-3">
             {drainedNode ? (
@@ -1175,7 +1261,8 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
                     isLoading: drainNodeMutation.isPending,
                   });
                 }}
-                disabled={drainNodeMutation.isPending}
+                disabled={drainNodeMutation.isPending || !isReady}
+                title={!isReady ? 'Open your terminal and check the box above first' : undefined}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50 transition-colors ${meta.btnColor}`}
               >
                 {drainNodeMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -1194,8 +1281,9 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
       return (
         <>
           <PreflightCheck simId={simId} />
+          <WithoutNote without={meta.without} />
           <p className="text-sm text-gray-600 leading-relaxed mb-3">{meta.description}</p>
-          <TerminalGuide simId={simId} />
+          <TerminalGuide simId={simId} ready={isReady} onReady={(v) => setReady(simId, v)} />
           <WatchCallout items={meta.watch} />
           <div className="flex gap-2 mt-3">
             {dbDown ? (
@@ -1213,13 +1301,14 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
                   const pfResult = PRE_FLIGHT['db-failure']?.(cachedStatus);
                   if (pfResult && !pfResult.ok) { toast.error(pfResult.msg); return; }
                   setConfirmDialog({
-                    title: 'Simulate Database Failure',
-                    message: 'Postgres StatefulSet will be scaled to 0. The database pod terminates. PVC data is safe.',
-                    onConfirm: () => dbFailureMutation.mutate(),
-                    isLoading: dbFailureMutation.isPending,
+                  title: 'Simulate Database Failure',
+                  message: 'Postgres StatefulSet will be scaled to 0. The database pod terminates. PVC data is safe.',
+                  onConfirm: () => dbFailureMutation.mutate(),
+                  isLoading: dbFailureMutation.isPending,
                   });
                 }}
-                disabled={dbFailureMutation.isPending}
+                disabled={dbFailureMutation.isPending || !isReady}
+                title={!isReady ? 'Open your terminal and check the box above first' : undefined}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50 transition-colors ${meta.btnColor}`}
               >
                 {dbFailureMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -1238,8 +1327,9 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
       return (
         <>
           <PreflightCheck simId={simId} />
+          <WithoutNote without={meta.without} />
           <p className="text-sm text-gray-600 leading-relaxed mb-3">{meta.description}</p>
-          <TerminalGuide simId={simId} />
+          <TerminalGuide simId={simId} ready={isReady} onReady={(v) => setReady(simId, v)} />
           <WatchCallout items={meta.watch} />
           <div className="mt-3">
             <button
@@ -1253,7 +1343,8 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
                   isLoading: killAllPodsMutation.isPending,
                 });
               }}
-              disabled={killAllPodsMutation.isPending}
+              disabled={killAllPodsMutation.isPending || !isReady}
+              title={!isReady ? 'Open your terminal and check the box above first' : undefined}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50 transition-colors ${meta.btnColor}`}
             >
               {killAllPodsMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -1272,8 +1363,9 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
       return (
         <>
           <PreflightCheck simId={simId} />
+          <WithoutNote without={meta.without} />
           <p className="text-sm text-gray-600 leading-relaxed mb-3">{meta.description}</p>
-          <TerminalGuide simId={simId} />
+          <TerminalGuide simId={simId} ready={isReady} onReady={(v) => setReady(simId, v)} />
           <WatchCallout items={meta.watch} />
           {isActive && (
             <div className="mt-2 mb-3 flex items-center gap-2 text-xs bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
@@ -1310,7 +1402,8 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
                     isLoading: failReadinessMutation.isPending,
                   });
                 }}
-                disabled={failReadinessMutation.isPending}
+                disabled={failReadinessMutation.isPending || !isReady}
+                title={!isReady ? 'Open your terminal and check the box above first' : undefined}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50 transition-colors ${meta.btnColor}`}
               >
                 {failReadinessMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -1354,13 +1447,15 @@ const SimulationPanel = ({ onActivity, onSimStart, onSimComplete, mockMode = fal
     return (
       <>
         <PreflightCheck simId={simId} />
+        <WithoutNote without={meta.without} />
         <p className="text-sm text-gray-600 leading-relaxed mb-3">{meta.description}</p>
-        <TerminalGuide simId={simId} />
+        <TerminalGuide simId={simId} ready={isReady} onReady={(v) => setReady(simId, v)} />
         <WatchCallout items={meta.watch} />
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <button
             onClick={handleClick}
-            disabled={entry.mutation.isPending || isCpuActive || isMemoryActive}
+            disabled={entry.mutation.isPending || isCpuActive || isMemoryActive || !isReady}
+            title={!isReady ? 'Open your terminal and check the box above first' : undefined}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-60 transition-colors ${meta.btnColor}`}
           >
             {entry.mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}

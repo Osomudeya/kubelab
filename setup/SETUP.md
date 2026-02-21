@@ -145,5 +145,54 @@ You'll see live panels for pod status, node CPU/memory, restart counts, and simu
 
 ---
 
+---
+
+## Option C — Single VM (15 min, works for 5/7 simulations)
+
+One Multipass VM with 4GB RAM. **Node Drain** and **Cascading Failure** need a second worker — all other simulations work fine on one node.
+
+```bash
+multipass launch --name kubelab-solo --cpus 2 --memory 4G --disk 30G 22.04
+multipass shell kubelab-solo
+sudo snap install microk8s --classic --channel=1.28/stable
+sudo usermod -a -G microk8s $USER && newgrp microk8s
+microk8s status --wait-ready
+microk8s enable dns storage metrics-server
+```
+
+Configure kubectl on your Mac:
+
+```bash
+multipass exec kubelab-solo -- microk8s config > ~/.kube/config-microk8s
+KUBECONFIG=~/.kube/config:~/.kube/config-microk8s kubectl config view --flatten > ~/.kube/config
+kubectl config use-context microk8s
+```
+
+Then follow **Option B steps 5–7** (secrets, deploy). Access via `http://<vm-ip>:30080`.
+
+**Limitation**: Node Drain and Cascading Failure require 2+ workers. All other 5 simulations work perfectly on a single node.
+
+---
+
+## Option D — Cloud Cluster (90 seconds, full experience)
+
+Any managed Kubernetes works — Civo free trial, DigitalOcean k3s droplet, EKS, GKE, AKS.
+
+**Civo (recommended for speed):**
+1. Sign up at [civo.com](https://www.civo.com) (free trial)
+2. Create a 3-node k3s cluster (90 seconds)
+3. Download kubeconfig
+4. Run `./scripts/deploy-all.sh`
+
+**DigitalOcean:**
+1. Create a $6/month droplet
+2. Install k3s: `curl -sfL https://get.k3s.io | sh -`
+3. Copy kubeconfig: `sudo cat /etc/rancher/k3s/k3s.yaml`
+4. Run `./scripts/deploy-all.sh`
+
+No local RAM required. Full 7-simulation experience. Perfect if you don't have 12GB free for Multipass VMs.
+
+---
+
 Full K8s setup details and troubleshooting: [k8s-setup.md](k8s-setup.md)
 
