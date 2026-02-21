@@ -39,6 +39,9 @@ k8s/secrets.yaml
 # Docker
 .dockerignore.bak
 
+# Screenshot instructions (images are tracked; this list is for maintainers only)
+docs/images/SCREENSHOTS_NEEDED.md
+
 # Internal tooling — not relevant to repo readers
 .codacy/
 .cursor/

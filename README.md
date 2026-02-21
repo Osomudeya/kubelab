@@ -51,6 +51,8 @@ Expected: 11 pods, all STATUS: Running. If any show Pending after 3 minutes, see
 
 Check: `kubectl get pods -n kubelab` → **11 Running**:
 
+![KubeLab UI](docs/images/dashboard.png)
+
 | Component | Pods |
 |-----------|------|
 | frontend | 1 |
