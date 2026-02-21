@@ -7,8 +7,8 @@ The dashboard and Prometheus data source are **auto-provisioned** — they appea
 > **After deploying:** wait 2–3 minutes for Prometheus to scrape all targets. Grafana panels will show "No data" until the first scrape completes. This is normal.
 
 Prometheus (ClusterIP — no NodePort):
-```bash
-kubectl port-forward -n kubelab svc/prometheus 9090:9090
+   ```bash
+   kubectl port-forward -n kubelab svc/prometheus 9090:9090
 # → http://localhost:9090
 ```
 

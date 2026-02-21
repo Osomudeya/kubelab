@@ -101,6 +101,8 @@ kubectl auth can-i delete pods --as=system:serviceaccount:kubelab:kubelab-backen
 # If "no": kubectl apply -f k8s/security/rbac.yaml
 ```
 
+**Something broken and you want a clean start?** `./scripts/teardown.sh && ./scripts/deploy-all.sh`
+
 ## Reference
 
 [Architecture](docs/architecture.md) · [All Scenarios](docs/failure-scenarios.md) · [Interview Prep](docs/interview-prep.md) · [Setup Guide](setup/SETUP.md) · [MicroK8s Setup](setup/k8s-setup.md)
