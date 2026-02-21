@@ -4,9 +4,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, ArrowRight, X, Copy, Check, ExternalLink } from 'lucide-react';
 import { SIMULATIONS } from '../../data/simulations';
-
-const DOCS_SIM_BASE = 'https://github.com/Osomudeya/kubelab/blob/main/docs/simulations';
-const INTERVIEW_PREP_BASE = 'https://github.com/Osomudeya/kubelab/blob/main/docs/interview-prep.md';
+import { docLinks } from '../../config/docLinks';
 const SIM_DOCS = {
   'kill-pod': 'pod-kill.md', 'drain-node': 'node-drain.md', 'memory-stress': 'oomkill.md',
   'db-failure': 'database.md', 'cpu-stress': 'cpu-stress.md', 'kill-all-pods': 'cascading.md', 'fail-readiness': 'readiness.md',
@@ -119,17 +117,17 @@ export default function WhatYouLearned({ simId, onNext, onDismiss, exploreMode =
       )}
       {SIM_DOCS[simId] && (
         <div className="border-t border-green-200 pt-3">
-          <a href={`${DOCS_SIM_BASE}/${SIM_DOCS[simId]}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800 hover:underline">Read the full guide <ExternalLink className="w-3 h-3" /></a>
+          <a href={`${docLinks.simulationsBase}/${SIM_DOCS[simId]}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800 hover:underline">Read the full guide <ExternalLink className="w-3 h-3" /></a>
         </div>
       )}
       {sim.interviewQuestion && INTERVIEW_ANCHORS[simId] && (
         <div className="border-t border-green-200 pt-3">
-          <a href={`${INTERVIEW_PREP_BASE}#${INTERVIEW_ANCHORS[simId]}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-800 hover:underline">💼 Interview question this prepares you for → <ExternalLink className="w-3 h-3" /></a>
+          <a href={`${docLinks.interviewPrep}#${INTERVIEW_ANCHORS[simId]}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-800 hover:underline">💼 Interview question this prepares you for → <ExternalLink className="w-3 h-3" /></a>
           <p className="text-xs text-gray-600 mt-0.5">{sim.interviewQuestion}</p>
         </div>
       )}
       <div className="border-t border-green-200 pt-3">
-        <a href={INTERVIEW_PREP_BASE} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:underline">All interview prep questions <ExternalLink className="w-3 h-3" /></a>
+        <a href={docLinks.interviewPrep} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:underline">All interview prep questions <ExternalLink className="w-3 h-3" /></a>
       </div>
       <div className="border-t border-green-200 pt-3 flex items-center gap-2 flex-wrap">
         <button onClick={onDismiss} className="text-xs px-3 py-1.5 rounded-lg border border-green-300 text-green-700 hover:bg-green-100">Got it</button>

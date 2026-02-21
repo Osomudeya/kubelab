@@ -14,6 +14,7 @@ import SimulationPanel   from './components/SimulationPanel';
 import ClusterMap        from './components/ClusterMap';
 import EventsFeed        from './components/EventsFeed';
 import OnboardingModal   from './components/OnboardingModal';
+import { docLinks } from './config/docLinks';
 
 const MODE_KEY = 'kubelab_mode';
 
@@ -129,7 +130,7 @@ function App() {
           <strong className="font-semibold">⚠ Mock Mode</strong> — no Kubernetes cluster detected.
           Simulation buttons return fake responses. No real pods are affected.{' '}
           <a
-            href="https://github.com/Osomudeya/kubelab/blob/main/setup/k8s-cluster-setup.md"
+            href={docLinks.setupCluster}
             target="_blank"
             rel="noreferrer"
             className="underline font-medium hover:text-amber-900"
