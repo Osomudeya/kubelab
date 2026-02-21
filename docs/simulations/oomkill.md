@@ -22,6 +22,8 @@ backend-6d4f8b9c7-xk2qp  2/2     Running   1          ← restarted
 kubectl describe pod -n kubelab <backend-pod> | grep -A 8 "Last State:"
 ```
 
+![OOMKill in describe](../images/oomkill-describe.png)
+
 ```
 Last State:  Terminated
   Reason:    OOMKilled

@@ -1,4 +1,4 @@
-# Grafana login failed — reset admin password
+# Grafana login — reset admin password
 
 If you see **"Invalid username or password"** with `admin` / `kubelab-grafana-2026`, Grafana’s database was probably created with a different password (e.g. an older secret or default). The secret in `k8s/secrets.yaml` is only applied when Grafana initializes its DB for the first time.
 
