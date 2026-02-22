@@ -45,3 +45,6 @@ docs/images/SCREENSHOTS_NEEDED.md
 # Internal tooling — not relevant to repo readers
 .codacy/
 .cursor/
+
+# Drafts
+article.md
