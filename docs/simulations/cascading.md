@@ -53,5 +53,5 @@ affinity:
 minAvailable: 1
 ```
 
-**Back**: [CPU Stress ←](cpu-stress.md) · **Next**: [Readiness Probe →](readiness.md)
+**Back**: [DB Failure ←](database.md) · **Next**: [Readiness Probe →](readiness.md)
 

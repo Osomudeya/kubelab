@@ -41,6 +41,10 @@ kubectl get events -n kubelab --sort-by=.lastTimestamp | tail -10
 
 # Confirm new pod is serving traffic
 kubectl get endpoints -n kubelab backend
+
+# Application logs (optional — follow the new pod's stdout)
+kubectl logs -n kubelab <pod-name> -f
+# After a restart, use --previous to see the crashed container's last output
 ```
 
 ## Production Insight

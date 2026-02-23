@@ -10,7 +10,7 @@ Break Kubernetes on purpose. Watch it self-heal.
 
 ## What You Need
 
-- **macOS, Linux, or Windows** with **12GB free RAM** (3 VMs × 4GB each)
+- **macOS, Linux, or Windows** with **8GB free RAM minimum, 12GB recommended** (3 VMs × 4GB each for full cluster)
 - [Multipass](https://multipass.run) — install for [macOS](https://multipass.run/docs/installing-on-macos) · [Linux](https://multipass.run/docs/installing-on-linux) · [Windows](https://multipass.run/docs/installing-on-windows)
 - `kubectl` — [install](https://kubernetes.io/docs/tasks/tools/) (e.g. macOS: `brew install kubectl`; Linux: `snap install kubectl --classic` or package manager; Windows: `winget install Kubernetes.kubectl` or Chocolatey)
 - Docker only if building your own images (prebuilt `veeno/kubelab-*` images are public; no Docker Hub account needed)
@@ -69,9 +69,9 @@ Run in this order in the UI — each builds on the previous. **After you run one
 
 1. [Kill Pod](docs/simulations/pod-kill.md) — Self-healing, ReplicaSets
 2. [Drain Node](docs/simulations/node-drain.md) — Zero-downtime maintenance
-3. [OOMKill](docs/simulations/oomkill.md) — Memory limits, exit code 137
-4. [DB Failure](docs/simulations/database.md) — StatefulSet persistence
-5. [CPU Stress](docs/simulations/cpu-stress.md) — Silent throttling
+3. [CPU Stress](docs/simulations/cpu-stress.md) — Silent throttling
+4. [OOMKill](docs/simulations/oomkill.md) — Memory limits, exit code 137
+5. [DB Failure](docs/simulations/database.md) — StatefulSet persistence
 6. [Cascading Failure](docs/simulations/cascading.md) — When replicas aren't enough
 7. [Readiness Probe](docs/simulations/readiness.md) — Running but receiving zero traffic
 

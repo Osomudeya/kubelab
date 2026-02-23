@@ -49,6 +49,12 @@ This is why StatefulSets exist. A Deployment for a database would mean each rest
 
 Backend gets `ECONNREFUSED` when querying `postgres:5432`. If the app retries connections with backoff, it recovers automatically when Postgres comes back. If the app caches a failed connection (common with connection pools), it stays broken — restart backend pods after restoring the DB.
 
+To see connection errors in the backend while Postgres is down:
+
+```bash
+kubectl logs -n kubelab -l app=backend --tail=50
+```
+
 ## Production Insight
 
 Scale-to-zero is a real operations pattern for non-production databases:
@@ -62,5 +68,5 @@ kubectl scale statefulset postgres --replicas=1 -n staging
 
 Data persists. Never do this to production.
 
-**Back**: [OOMKill ←](oomkill.md) · **Next**: [CPU Stress →](cpu-stress.md)
+**Back**: [OOMKill ←](oomkill.md) · **Next**: [Cascading Failure →](cascading.md)
 

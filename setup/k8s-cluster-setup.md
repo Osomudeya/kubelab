@@ -14,7 +14,7 @@ This guide walks you through creating a real 3-node Kubernetes cluster using Mul
 - **Multipass** — [Install for your OS](https://multipass.run): macOS (`brew install --cask multipass`), Linux (snap or .deb from multipass.run), Windows (installer from multipass.run)
 - **kubectl** — [Install](https://kubernetes.io/docs/tasks/tools/): macOS (`brew install kubectl`), Linux (`snap install kubectl --classic` or distro package), Windows (`winget install Kubernetes.kubectl` or Chocolatey)
 - **Docker** — only if building custom images; prebuilt `veeno/kubelab-*` images are public (no Docker Hub account needed)
-- **~8GB free RAM and ~60GB free disk** on your machine (host, not the VMs)
+- **~8GB free RAM minimum, 12GB recommended, and ~60GB free disk** on your machine (host, not the VMs)
 
 ---
 
@@ -318,6 +318,8 @@ Stop port-forwards: `pkill -f "kubectl port-forward"`
 ## Part 10 — What you see in Grafana
 
 Open http://localhost:3000 (after starting the Grafana port-forward). Login: `admin` / `kubelab-grafana-2026`.
+
+![KubeLab Cluster Health dashboard in Grafana](../docs/images/grafana-dashboard.png)
 
 The **KubeLab Cluster Health** dashboard and the **Prometheus** data source are auto-provisioned — no manual import. Panels show pod count, node CPU/memory, HTTP request rate, restart counts, and simulation events. Use this dashboard while you run simulations in the KubeLab UI to see the impact in real time.
 

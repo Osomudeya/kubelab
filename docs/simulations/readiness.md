@@ -51,6 +51,13 @@ kubectl describe pod -n kubelab <failing-pod> | grep -A 5 "Readiness:"
 # Last probe showed: HTTP probe failed with statuscode: 503
 ```
 
+Application logs show the readiness endpoint returning 503 while the pod stays Running:
+
+```bash
+kubectl logs -n kubelab <failing-pod> -f
+# You'll see 503 responses for /ready — the pod is alive but not receiving traffic
+```
+
 ## Production Insight
 
 This is how you **intentionally** remove a pod from traffic without killing it:

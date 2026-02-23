@@ -36,6 +36,9 @@ kubectl get pods -A | awk '$5 > 2'
 kubectl describe pod <pod-name> -n <namespace> | grep -A 5 "Last State:"
 # Look for: Reason: OOMKilled, Exit Code: 137
 
+# Last output before the kill (log stream stops abruptly — no shutdown message)
+kubectl logs <pod-name> -n <namespace> --previous
+
 # Check current memory vs limit
 kubectl top pod <pod-name> -n <namespace>
 kubectl get pod <pod-name> -n <namespace> -o jsonpath='{.spec.containers[0].resources}'
@@ -111,6 +114,9 @@ kubectl get endpoints -n <namespace> <service-name>
 kubectl describe pod <pod-name> -n <namespace> | grep -A 10 "Conditions:"
 # Look for: Ready: False, ContainersReady: True
 # This combination = alive but not in endpoints
+
+# Application logs: see 503s for the readiness endpoint while the pod stays Running
+kubectl logs <pod-name> -n <namespace> -f
 ```
 
 **Fix:**
@@ -153,6 +159,9 @@ kubectl logs postgres-0 -n <namespace> --previous | tail -20
 kubectl logs postgres-0 -n <namespace> -f
 # Watch for "database system is ready to accept connections"
 # WAL replay can take minutes on a large database
+
+# Backend connection errors while Postgres is down
+kubectl logs -l app=backend -n <namespace> --tail=50
 ```
 
 **Fix for right now:**

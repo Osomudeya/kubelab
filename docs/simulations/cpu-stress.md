@@ -57,5 +57,5 @@ resources:
 
 Alert on throttle % when it exceeds 25% of total CPU time.
 
-**Back**: [DB Failure ←](database.md) · **Next**: [Cascading Failure →](cascading.md)
+**Back**: [Drain Node ←](node-drain.md) · **Next**: [OOMKill →](oomkill.md)
 

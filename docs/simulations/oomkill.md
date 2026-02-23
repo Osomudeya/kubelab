@@ -32,6 +32,14 @@ Last State:  Terminated
 
 Exit 137 = 128 + 9 (SIGKILL). The Linux kernel's OOM killer sent SIGKILL directly to the process — not Kubernetes. Kubernetes only observed the exit code and labeled it OOMKilled.
 
+To see the last output before the kill (no shutdown message — SIGKILL leaves no time for cleanup):
+
+```bash
+kubectl logs -n kubelab <backend-pod> --previous
+```
+
+The log stream stops mid-line. That abrupt cutoff is the OOMKill signature in logs.
+
 ## Why No Graceful Shutdown?
 
 SIGKILL cannot be caught, blocked, or handled by any process. There is no `preStop` hook, no cleanup. The kernel doesn't negotiate — it terminates instantly. This is why OOMKills cause data loss in apps that buffer writes in memory.
@@ -60,5 +68,5 @@ kubectl top pod -n kubelab    # watch memory grow over time
 kubectl logs <pod> --previous # see what was happening before the kill
 ```
 
-**Back**: [Drain Node ←](node-drain.md) · **Next**: [DB Failure →](database.md)
+**Back**: [CPU Stress ←](cpu-stress.md) · **Next**: [DB Failure →](database.md)
 

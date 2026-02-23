@@ -1,6 +1,6 @@
 # Failure Scenarios
 
-Run in this order — each one teaches something different. **Want more detail after running one in the UI?** Use the per-scenario guides: [Kill Pod](simulations/pod-kill.md) · [Drain Node](simulations/node-drain.md) · [OOMKill](simulations/oomkill.md) · [DB Failure](simulations/database.md) · [CPU Stress](simulations/cpu-stress.md) · [Cascading](simulations/cascading.md) · [Readiness](simulations/readiness.md).
+Run in this order — each one teaches something different. **Want more detail after running one in the UI?** Use the per-scenario guides: [Kill Pod](simulations/pod-kill.md) · [Drain Node](simulations/node-drain.md) · [CPU Stress](simulations/cpu-stress.md) · [OOMKill](simulations/oomkill.md) · [DB Failure](simulations/database.md) · [Cascading](simulations/cascading.md) · [Readiness](simulations/readiness.md).
 
 ---
 
@@ -49,11 +49,33 @@ kubectl get pods -n kubelab -o wide | grep backend
 # If both show the same NODE, you have an HA gap
 ```
 
-**Back**: [Kill Pod ←](#1-kill-random-pod) · **Next**: [OOMKill →](#3-memory-stress-oomkill)
+**Back**: [Kill Pod ←](#1-kill-random-pod) · **Next**: [CPU Stress →](#3-cpu-stress)
 
 ---
 
-## 3. Memory Stress (OOMKill)
+## 3. CPU Stress
+
+**Detailed guide:** [cpu-stress.md](simulations/cpu-stress.md)
+
+Runs a stress process inside a backend pod for 60 seconds. Pod hits its 200m CPU limit and gets throttled.
+
+```bash
+kubectl top pods -n kubelab
+# One backend pod pegged at ~200m for 60s. Pod never restarts.
+```
+
+**Insight**: CPU throttling is invisible. The pod is trying to use 2000m but the CFS scheduler freezes it 90% of the time. `kubectl top` shows usage at the ceiling — not what was denied. To see actual throttling:
+```promql
+rate(container_cpu_cfs_throttled_seconds_total{namespace="kubelab"}[5m])
+```
+
+High latency + normal-looking CPU metrics + no restarts = CPU limits set too low.
+
+**Back**: [Drain Node ←](#2-drain-worker-node) · **Next**: [OOMKill →](#4-memory-stress-oomkill)
+
+---
+
+## 4. Memory Stress (OOMKill)
 
 **Detailed guide:** [oomkill.md](simulations/oomkill.md)
 
@@ -81,11 +103,11 @@ Exit 137 = 128 + 9 (SIGKILL). The Linux kernel sent it — not Kubernetes. Kuber
 
 **Insight**: The other backend replica served traffic the entire time. Slow memory leak pattern: pod runs for 8 hours → OOMKill → restart → repeat. Alert on `kube_pod_container_status_restarts_total > 3` per hour.
 
-**Back**: [Drain Node ←](#2-drain-worker-node) · **Next**: [DB Failure →](#4-database-failure)
+**Back**: [CPU Stress ←](#3-cpu-stress) · **Next**: [DB Failure →](#5-database-failure)
 
 ---
 
-## 4. Database Failure
+## 5. Database Failure
 
 **Detailed guide:** [database.md](simulations/database.md)
 
@@ -107,29 +129,7 @@ After restoring: same pod name (`postgres-0`), same PVC reattaches, zero data lo
 
 **Insight**: StatefulSets guarantee `postgres-0` always gets PVC `postgres-data-postgres-0`. If the backend doesn't retry database connections, it stays broken until you restart backend pods even after Postgres recovers.
 
-**Back**: [OOMKill ←](#3-memory-stress-oomkill) · **Next**: [CPU Stress →](#5-cpu-stress)
-
----
-
-## 5. CPU Stress
-
-**Detailed guide:** [cpu-stress.md](simulations/cpu-stress.md)
-
-Runs a stress process inside a backend pod for 60 seconds. Pod hits its 200m CPU limit and gets throttled.
-
-```bash
-kubectl top pods -n kubelab
-# One backend pod pegged at ~200m for 60s. Pod never restarts.
-```
-
-**Insight**: CPU throttling is invisible. The pod is trying to use 2000m but the CFS scheduler freezes it 90% of the time. `kubectl top` shows usage at the ceiling — not what was denied. To see actual throttling:
-```promql
-rate(container_cpu_cfs_throttled_seconds_total{namespace="kubelab"}[5m])
-```
-
-High latency + normal-looking CPU metrics + no restarts = CPU limits set too low.
-
-**Back**: [DB Failure ←](#4-database-failure) · **Next**: [Cascading Failure →](#6-cascading-pod-failure)
+**Back**: [OOMKill ←](#4-memory-stress-oomkill) · **Next**: [Cascading Failure →](#6-cascading-pod-failure)
 
 ---
 
@@ -151,7 +151,7 @@ kubectl get events -n kubelab --sort-by=.lastTimestamp | tail -10
 
 **Insight**: `replicas: 2` protects against one pod dying. It doesn't protect against both dying simultaneously (bad deployment rollout, node running both replicas fails). Fix: pod anti-affinity + PodDisruptionBudget with `minAvailable: 1`.
 
-**Back**: [CPU Stress ←](#5-cpu-stress) · **Next**: [Readiness Probe →](#7-readiness-probe-failure)
+**Back**: [DB Failure ←](#5-database-failure) · **Next**: [Readiness Probe →](#7-readiness-probe-failure)
 
 ---
 
@@ -189,8 +189,8 @@ kubectl describe pod -n kubelab <failing-pod> | grep -A 5 "Conditions:"
 |-----------|---------------|-----------------|
 | Kill Pod | `kubectl get pods -n kubelab -w` | Name changes on replacement |
 | Drain Node | `kubectl get pods -n kubelab -o wide -w` | NODE column changes |
+| CPU Stress | `kubectl top pods -n kubelab` | One pod pegged at limit |
 | OOMKill | `kubectl describe pod ... \| grep "Last State" -A 8` | Exit Code: 137 |
 | DB Failure | `kubectl get pvc -n kubelab` | PVC stays Bound |
-| CPU Stress | `kubectl top pods -n kubelab` | One pod pegged at limit |
 | Cascading | `kubectl get endpoints -n kubelab backend -w` | ENDPOINTS → `<none>` |
 | Readiness | `kubectl describe pod ... \| grep "Ready:"` | Ready: False, ContainersReady: True |
