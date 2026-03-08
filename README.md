@@ -126,3 +126,17 @@ kubectl auth can-i delete pods --as=system:serviceaccount:kubelab:kubelab-backen
 ## Reference
 
 [Architecture](docs/architecture.md) · [All Scenarios](docs/failure-scenarios.md) · [Interview Prep](docs/interview-prep.md) · [Docker Compose preview](setup/docker-compose-preview.md) · [MicroK8s Setup](setup/k8s-cluster-setup.md)
+
+## For Engineers Ready to Go Deeper
+
+**[The Kubernetes Detective: Fix It Fast — Complete Troubleshooting Demo](https://osomudeya.gumroad.com/l/jabzk)** — A pod is crashing. `kubectl logs` shows nothing useful. Three engineers are watching you, and you have no idea where to start. This guide is the systematic debugging method that turns that moment from panic into a process. It's what separates engineers who guess from engineers who diagnose.
+
+## Start Here
+
+**The DevOps Operating System** — The structured path from confusion to a hireable engineer.
+
+It's a 6-week curriculum built around one progression: reading → building → understanding → explaining → getting hired. The first four phases give you a working local environment, Linux, Git, Docker, and Kubernetes running on MicroK8s. After that, the curriculum moves you into realistic production scenarios: real world tickets, infrastructure tasks, and a capstone enterprise system you build end-to-end.
+
+By the end, you won't need someone to walk you through a debugging session. You'll already know what to look for, and how to explain what you found.
+
+→ [Access DevOps Operating System](https://osomudeya.gumroad.com/l/devops-atlas) — Founding Engineer Price ($49). Standard price moves to $149. This is the last time it's here.
