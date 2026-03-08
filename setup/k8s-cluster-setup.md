@@ -221,16 +221,32 @@ All three nodes must show `Ready` before you deploy.
 
 ## Part 6 — Secrets
 
-`k8s/secrets.yaml` is already in the repo with working development credentials:
+Create your secrets file from the template:
 
-- **Postgres password**: `kubelab-secure-password-123`
-- **Grafana login**: `admin` / `kubelab-grafana-2026`
+```bash
+cp k8s/secrets.yaml.example k8s/secrets.yaml
+```
 
-You don't need to do anything. `deploy-all.sh` applies this file automatically.
+Edit `k8s/secrets.yaml` and replace the `<base64-encoded-*>` placeholders with your actual values. Generate base64 strings with:
 
-> To use your own passwords: edit `k8s/secrets.yaml` with base64-encoded values (`echo -n "yourpassword" | base64`). The file is gitignored — it won't be committed.
+```bash
+# Example: encode a postgres password
+echo -n "your-postgres-password" | base64
 
+# Example: encode the full connection string
+echo -n "postgresql://kubelab:your-postgres-password@postgres:5432/kubelab" | base64
+```
 
+The file defines two secrets:
+
+| Secret | Field | Description |
+|--------|-------|-------------|
+| `postgres-secret` | `password` | PostgreSQL password (base64) |
+| `postgres-secret` | `connection-string` | Full connection URI (base64) |
+| `grafana-secret` | `admin-user` | Grafana admin username (pre-set to `admin`) |
+| `grafana-secret` | `admin-password` | Grafana admin password (base64) |
+
+> **Note:** `k8s/secrets.yaml` is gitignored — your credentials won't be committed. The `deploy-all.sh` script applies this file automatically during deployment.
 
 ---
 
