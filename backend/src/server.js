@@ -133,6 +133,18 @@ app.get('/metrics', async (req, res) => {
 
 // API routes
 app.use('/api/cluster', clusterRoutes);
+
+// Simulation endpoints are POST-only; GET (e.g. redirects or prefetch) → 405 so proxy/UI get a clear signal
+app.use('/api/simulate', (req, res, next) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      error: `Method not allowed. Use POST for /api/simulate/* (e.g. POST /api/simulate/drain-node with body { "nodeName": "<name>" }).`,
+      allowed: 'POST'
+    });
+  }
+  next();
+});
 app.use('/api/simulate', simulationRoutes);
 
 // Root endpoint
