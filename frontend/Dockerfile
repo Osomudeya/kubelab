@@ -36,12 +36,12 @@ RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run && \
 # Switch to non-root user
 USER nginx-user
 
-# Expose port
+# Expose port (non-root: 8080)
 EXPOSE 8080
 
-# Health check
+# Health check (nginx listens on 8080)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

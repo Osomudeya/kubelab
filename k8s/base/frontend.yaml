@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: veeno/kubelab-frontend:latest
+          image: veeno/kubelab-frontend:16
           ports:
             - containerPort: 8080
               name: http
@@ -43,6 +43,18 @@ spec:
               value: "http://backend:3000"
             - name: NODE_ENV
               value: "production"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             limits:
               cpu: 100m
@@ -50,4 +62,3 @@ spec:
             requests:
               cpu: 50m
               memory: 64Mi
-

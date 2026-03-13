@@ -1,5 +1,7 @@
 # KubeLab
 
+[![GitHub stars](https://img.shields.io/github/stars/Osomudeya/kubelab?style=flat-square)](https://github.com/Osomudeya/kubelab/stargazers) [![GitHub forks](https://img.shields.io/github/forks/Osomudeya/kubelab?style=flat-square)](https://github.com/Osomudeya/kubelab/network) [![GitHub release downloads](https://img.shields.io/github/downloads/Osomudeya/kubelab/total?style=flat-square)](https://github.com/Osomudeya/kubelab/releases)
+
 Break Kubernetes on purpose. Watch it self-heal.
 
 **New to Kubernetes?** Follow the guided path below — sequential simulations with explanations and quizzes. Takes about 90 minutes.

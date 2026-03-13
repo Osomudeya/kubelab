@@ -23,7 +23,17 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+
+// Ensure POST/PUT/PATCH are treated as JSON (proxies can strip Content-Type → 415)
+app.use((req, res, next) => {
+  const method = (req.method || '').toUpperCase();
+  if (['POST', 'PUT', 'PATCH'].includes(method)) {
+    req.headers['content-type'] = 'application/json';
+  }
+  next();
+});
+// Accept any Content-Type for JSON so proxy/nginx never cause 415
+app.use(express.json({ type: '*/*', strict: true }));
 app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
@@ -57,7 +67,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
+// Health check endpoint (jsonFix: true = express.json({ type: '*/*' }) applied)
 app.get('/health', (req, res) => {
   const fs = require('fs');
   const inCluster = fs.existsSync('/var/run/secrets/kubernetes.io/serviceaccount/token');
@@ -65,6 +75,7 @@ app.get('/health', (req, res) => {
     success: true,
     status: 'healthy',
     mockMode: !inCluster,
+    jsonFix: true,
     timestamp: new Date().toISOString()
   });
 });

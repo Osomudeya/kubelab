@@ -12,24 +12,18 @@ echo "🚀 Deploying KubeLab to MicroK8s"
 echo "=================================="
 echo ""
 
-# Check if microk8s is available
-if ! command -v microk8s &> /dev/null; then
-    echo "❌ microk8s is not installed"
-    echo "   Install: sudo snap install microk8s --classic"
+# Use kubectl if it can reach a cluster (e.g. context microk8s); else use microk8s kubectl
+if kubectl get nodes &>/dev/null; then
+    KUBECTL="kubectl"
+    echo "✅ Using kubectl ($(kubectl config current-context 2>/dev/null || echo 'current context'))"
+elif command -v microk8s &>/dev/null && microk8s status 2>/dev/null | grep -q "is running" && microk8s kubectl get nodes &>/dev/null; then
+    KUBECTL="microk8s kubectl"
+    echo "✅ Using microk8s kubectl"
+else
+    echo "❌ Cannot reach cluster. Run: kubectl config use-context microk8s"
+    echo "   Then: kubectl get nodes   (should list your MicroK8s nodes)"
     exit 1
 fi
-
-# Check if MicroK8s is ready
-if ! microk8s status --wait-ready &> /dev/null; then
-    echo "❌ MicroK8s is not ready"
-    echo "   Wait for it to start: microk8s status --wait-ready"
-    exit 1
-fi
-
-# Use microk8s kubectl
-KUBECTL="microk8s kubectl"
-
-echo "✅ MicroK8s is ready"
 echo ""
 
 # Deploy namespace

@@ -44,8 +44,8 @@ cd backend && docker build -t <username>/kubelab-backend:latest .
 cd ../frontend && docker build -t <username>/kubelab-frontend:latest .
 
 # Push
-docker push <username>/kubelab-backend:latest
-docker push <username>/kubelab-frontend:latest
+docker push <username>/kubelab-backend:15
+docker push <username>/kubelab-frontend:15
 ```
 
 ## Verify
@@ -109,8 +109,8 @@ docker-compose down
 ## Current Status
 
 ✅ **Images on Docker Hub**:
-- `veeno/kubelab-backend:latest`
-- `veeno/kubelab-frontend:latest`
+- `veeno/kubelab-backend:15`
+- `veeno/kubelab-frontend:15`
 
 ✅ **Manifests Updated**:
 - `k8s/base/backend.yaml` → Uses Docker Hub images

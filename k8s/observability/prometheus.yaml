@@ -210,6 +210,7 @@ spec:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus'
             - '--storage.tsdb.retention.time=7d'
+            - '--storage.tsdb.retention.size=2GB'
             - '--web.console.libraries=/usr/share/prometheus/console_libraries'
             - '--web.console.templates=/usr/share/prometheus/consoles'
             - '--web.enable-lifecycle'
@@ -223,8 +224,8 @@ spec:
               mountPath: /prometheus
           resources:
             limits:
-              cpu: 400m
-              memory: 1Gi
+              cpu: 500m
+              memory: 2Gi
             requests:
               cpu: 150m
               memory: 512Mi
@@ -232,9 +233,9 @@ spec:
             httpGet:
               path: /-/ready
               port: 9090
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            failureThreshold: 30
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 40
           livenessProbe:
             httpGet:
               path: /-/healthy

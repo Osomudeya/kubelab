@@ -18,6 +18,10 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "delete"]
+  # Create pod evictions (drain-node uses Eviction API so PDBs are respected)
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
   # Read events (live events feed in the UI)
   - apiGroups: [""]
     resources: ["events"]
@@ -60,6 +64,14 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "delete"]
+  # Create pod evictions in any namespace (drain-node uses Eviction API; PDBs respected)
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+  # Read PDBs (optional: for visibility when eviction is blocked by PDB)
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

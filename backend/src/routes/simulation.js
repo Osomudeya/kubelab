@@ -105,10 +105,10 @@ router.post('/drain-node', async (req, res, next) => {
 
   try {
     const { k8sApi, coreV1Api } = getK8sClient();
-    const { nodeName } = req.body;
+    const { nodeName } = req.body || {};
 
     if (!nodeName) {
-      return res.status(400).json({ success: false, error: 'nodeName is required' });
+      return res.status(400).json({ success: false, error: 'nodeName is required. Send JSON body: { "nodeName": "<node-name>" }' });
     }
 
     logger.info('Draining node', { nodeName });
@@ -131,7 +131,9 @@ router.post('/drain-node', async (req, res, next) => {
     await coreV1Api.patchNode(
       nodeName,
       { spec: { unschedulable: true } },
-      undefined, undefined, undefined, undefined, patchOpts
+      undefined, undefined, undefined, undefined,
+      undefined, // force (position 7 — required before options)
+      patchOpts
     );
 
     logger.info('Node cordoned', { nodeName });
@@ -249,7 +251,9 @@ router.post('/uncordon-node', async (req, res) => {
     await coreV1Api.patchNode(
       nodeName,
       { spec: { unschedulable: false } },
-      undefined, undefined, undefined, undefined, patchOpts
+      undefined, undefined, undefined, undefined,
+      undefined, // force (position 7 — required before options)
+      patchOpts
     );
 
     simulationEventsCounter.inc({ type: 'node_uncordon' });

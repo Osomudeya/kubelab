@@ -39,7 +39,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backend
-          image: veeno/kubelab-backend:latest
+          image: veeno/kubelab-backend:16
           ports:
             - containerPort: 3000
               name: http
@@ -73,7 +73,7 @@ spec:
             httpGet:
               path: /ready
               port: 3000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 20
             periodSeconds: 5
             timeoutSeconds: 3
             successThreshold: 1

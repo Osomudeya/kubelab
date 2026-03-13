@@ -14,9 +14,16 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for logging
+// Request interceptor: ensure JSON body requests always send Content-Type (avoids 415 behind proxies)
 api.interceptors.request.use(
   (config) => {
+    const method = (config.method || 'get').toLowerCase();
+    if (['post', 'put', 'patch'].includes(method) && config.data !== undefined) {
+      if (!config.headers) config.headers = {};
+      if (!config.headers['Content-Type']) {
+        config.headers['Content-Type'] = 'application/json';
+      }
+    }
     return config;
   },
   (error) => {
