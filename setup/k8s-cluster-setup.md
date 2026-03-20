@@ -1,6 +1,6 @@
 # Kubernetes Setup Guide (MicroK8s — 3-Node Cluster)
 
-This guide walks you through creating a real 3-node Kubernetes cluster using Multipass VMs on **macOS, Linux, or Windows** and deploying the full KubeLab stack. **First time? Run every command below** — you’ll see MicroK8s install, addons enable, and workers join. Done this before? Optional shortcuts: `./scripts/setup-cluster.sh` (inside the control plane VM) and `./scripts/join-worker-node.sh <token>` (on each worker).
+This guide walks you through creating a real 3-node Kubernetes cluster using Multipass VMs on **macOS, Linux, or Windows** and deploying the full KubeLab stack. **First time? Run every command below** — you’ll see MicroK8s install, addons enable, and workers join. Done this before? Optional shortcuts: `./scripts/setup-cluster.sh` (inside the control plane VM) and `./scripts/join-worker-node.sh <token>` (on each worker). **Already have a single-node MicroK8s VM and only need workers?** On your host run `./scripts/provision-worker-vms.sh` — by default it launches `kubelab-worker-1`, `kubelab-worker-2`, and `kubelab-worker-3`, installs MicroK8s on them (matching your control plane’s snap channel), and joins them to `microk8s-vm`. Override with `WORKER_VMS="w1 w2"` if you want fewer.
 
 **What you'll end up with:**
 - 1 control-plane node (`microk8s-vm` — `192.168.64.5`)

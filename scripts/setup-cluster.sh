@@ -9,6 +9,20 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# MicroK8s is installed via snap; snapd does not run on macOS/Windows hosts.
+# Run this script inside your Multipass (or other Linux) VM where MicroK8s lives.
+if [ "$(uname -s)" = "Darwin" ]; then
+    echo "❌ Run this script inside your Linux VM, not on macOS."
+    echo "   MicroK8s uses snap, which is not supported on darwin (you'll see:"
+    echo "   \"Interacting with snapd is not yet supported on darwin\")."
+    echo ""
+    echo "   Example:"
+    echo "     multipass shell microk8s-vm"
+    echo "     cd /path/to/kube-lab   # or mount/sync your repo into the VM"
+    echo "     bash scripts/setup-cluster.sh"
+    exit 1
+fi
+
 echo "🚀 KubeLab Cluster Setup"
 echo "========================"
 echo ""
